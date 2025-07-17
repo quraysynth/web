@@ -1,0 +1,34 @@
+gestures:
+- midi: 
+  - channel: 1
+    note: 60
+  - channel: 1
+    cc: 19
+    axis: y
+  position: !!python/tuple
+  - true
+  - 0.48
+  - 0
+  - 0.5311081898251611
+  - 700.0
+- midi:
+  - channel: 1
+    cc: 3
+    axis: y
+  position: !!python/tuple
+  - true
+  - 0.48
+  - 479.0
+  - 0.52
+  - 700.0
+signal_max_values:
+- 75
+- 40
+- 28
+- 27
+- 27
+- 26
+- 61
+- 26
+- 34
+- 23
