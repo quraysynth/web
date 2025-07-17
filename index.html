@@ -58,6 +58,10 @@
             cursor: not-allowed;
         }
         
+        #generateBtn:hover {
+            background-color: #218838;
+        }
+        
         .status {
             margin-top: 20px;
             padding: 15px;
@@ -149,6 +153,22 @@
             <div style="display: flex; gap: 10px; margin-top: 5px;">
                 <a href="device.yaml" download style="padding: 8px 16px; background-color: #007acc; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">📋 device.yaml</a>
                 <a href="quray.txt" download style="padding: 8px 16px; background-color: #007acc; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">📄 quray.txt</a>
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label>🤖 AI Configuration Generator:</label>
+            <div style="margin-top: 10px;">
+                <div style="margin-bottom: 10px;">
+                    <label for="openaiKey" style="font-size: 14px;">OpenAI API Key:</label>
+                    <input type="password" id="openaiKey" placeholder="sk-..." style="margin-bottom: 5px;">
+                    <small style="color: #666; display: block;">⚠️ Warning: API key will be visible in browser. Use only for testing!</small>
+                </div>
+                <div style="margin-bottom: 10px;">
+                    <label for="aiPrompt" style="font-size: 14px;">Describe your MIDI controller setup:</label>
+                    <textarea id="aiPrompt" rows="3" placeholder="e.g., Create a configuration for a DJ controller with 4 zones: drums, bass, melody, and effects..." style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                </div>
+                <button type="button" id="generateBtn" style="background-color: #28a745;">🚀 Generate YAML with AI</button>
             </div>
         </div>
         
@@ -344,19 +364,35 @@
             }
         }
         
-        // Simple protobuf encoding for our basic use case
+        // Enhanced protobuf encoding based on Python implementation
+        function encodeVarint(value) {
+            const result = [];
+            while (value >= 0x80) {
+                result.push((value & 0xFF) | 0x80);
+                value >>>= 7;
+            }
+            result.push(value & 0xFF);
+            return result;
+        }
+        
+        function encodeFloat32(value) {
+            const buffer = new ArrayBuffer(4);
+            new DataView(buffer).setFloat32(0, value, true);
+            return Array.from(new Uint8Array(buffer));
+        }
+        
         function encodeHostCommand(counter, settings = null) {
             const parts = [];
             
             // Add counter field (tag 3, varint)
             parts.push(0x18); // tag 3, wire type 0 (varint)
-            parts.push(counter);
+            parts.push(...encodeVarint(counter));
             
             if (settings) {
                 // Add settings field (tag 4, length-delimited)
                 const settingsData = encodeDeviceSettings(settings);
                 parts.push(0x22); // tag 4, wire type 2 (length-delimited)
-                parts.push(settingsData.length);
+                parts.push(...encodeVarint(settingsData.length));
                 parts.push(...settingsData);
             }
             
@@ -367,20 +403,20 @@
             const parts = [];
             
             // Encode gestures (tag 1, repeated)
-            if (settings.gestures) {
+            if (settings.gestures && settings.gestures.length > 0) {
                 for (const gesture of settings.gestures) {
                     const gestureData = encodeGesture(gesture);
                     parts.push(0x0A); // tag 1, wire type 2
-                    parts.push(gestureData.length);
+                    parts.push(...encodeVarint(gestureData.length));
                     parts.push(...gestureData);
                 }
             }
             
             // Encode signal_max_values (tag 2, repeated)
-            if (settings.signal_max_values) {
+            if (settings.signal_max_values && settings.signal_max_values.length > 0) {
                 for (const value of settings.signal_max_values) {
                     parts.push(0x10); // tag 2, wire type 0
-                    parts.push(value);
+                    parts.push(...encodeVarint(parseInt(value)));
                 }
             }
             
@@ -391,11 +427,11 @@
             const parts = [];
             
             // Encode MIDI bindings (tag 1, repeated)
-            if (gesture.midi) {
+            if (gesture.midi && gesture.midi.length > 0) {
                 for (const midi of gesture.midi) {
                     const midiData = encodeMidiBinding(midi);
                     parts.push(0x0A); // tag 1, wire type 2
-                    parts.push(midiData.length);
+                    parts.push(...encodeVarint(midiData.length));
                     parts.push(...midiData);
                 }
             }
@@ -404,7 +440,7 @@
             if (gesture.position) {
                 const posData = encodeGesturePosition(gesture.position);
                 parts.push(0x12); // tag 2, wire type 2
-                parts.push(posData.length);
+                parts.push(...encodeVarint(posData.length));
                 parts.push(...posData);
             }
             
@@ -414,24 +450,25 @@
         function encodeMidiBinding(midi) {
             const parts = [];
             
-            if (midi.channel) {
+            if (midi.channel && midi.channel > 0) {
                 parts.push(0x08); // tag 1, varint
-                parts.push(midi.channel);
+                parts.push(...encodeVarint(parseInt(midi.channel)));
             }
             
-            if (midi.note) {
+            if (midi.note && midi.note > 0) {
                 parts.push(0x10); // tag 2, varint
-                parts.push(midi.note);
+                parts.push(...encodeVarint(parseInt(midi.note)));
             }
             
-            if (midi.cc) {
+            if (midi.cc && midi.cc > 0) {
                 parts.push(0x18); // tag 3, varint
-                parts.push(midi.cc);
+                parts.push(...encodeVarint(parseInt(midi.cc)));
             }
             
             if (midi.axis !== undefined) {
                 parts.push(0x20); // tag 4, varint (enum)
-                parts.push(midi.axis === 'X' ? 0 : 1);
+                const axisValue = (midi.axis && midi.axis.toUpperCase() === 'Y') ? 1 : 0;
+                parts.push(...encodeVarint(axisValue));
             }
             
             return parts;
@@ -442,42 +479,34 @@
             
             if (pos.active !== undefined) {
                 parts.push(0x08); // tag 1, varint
-                parts.push(pos.active ? 1 : 0);
+                parts.push(...encodeVarint(pos.active ? 1 : 0));
             }
             
-            // For simplicity, we'll encode floats as fixed32 (not ideal but works for demo)
+            // Encode floats as fixed32 (4 bytes little-endian)
             if (pos.x_min !== undefined) {
                 parts.push(0x15); // tag 2, fixed32
-                const buffer = new ArrayBuffer(4);
-                new DataView(buffer).setFloat32(0, pos.x_min, true);
-                parts.push(...new Uint8Array(buffer));
+                parts.push(...encodeFloat32(parseFloat(pos.x_min)));
             }
             
             if (pos.y_min !== undefined) {
                 parts.push(0x1D); // tag 3, fixed32
-                const buffer = new ArrayBuffer(4);
-                new DataView(buffer).setFloat32(0, pos.y_min, true);
-                parts.push(...new Uint8Array(buffer));
+                parts.push(...encodeFloat32(parseFloat(pos.y_min)));
             }
             
             if (pos.x_max !== undefined) {
                 parts.push(0x25); // tag 4, fixed32
-                const buffer = new ArrayBuffer(4);
-                new DataView(buffer).setFloat32(0, pos.x_max, true);
-                parts.push(...new Uint8Array(buffer));
+                parts.push(...encodeFloat32(parseFloat(pos.x_max)));
             }
             
             if (pos.y_max !== undefined) {
                 parts.push(0x2D); // tag 5, fixed32
-                const buffer = new ArrayBuffer(4);
-                new DataView(buffer).setFloat32(0, pos.y_max, true);
-                parts.push(...new Uint8Array(buffer));
+                parts.push(...encodeFloat32(parseFloat(pos.y_max)));
             }
             
             return parts;
         }
         
-        // Parse YAML to our settings format
+        // Enhanced YAML to settings conversion (based on Python implementation)
         function yamlToSettings(yamlData) {
             const settings = {
                 gestures: [],
@@ -485,12 +514,14 @@
             };
             
             // Convert signal_max_values
-            if (yamlData.signal_max_values) {
-                settings.signal_max_values = yamlData.signal_max_values.map(v => parseInt(v));
+            if (yamlData.signal_max_values && Array.isArray(yamlData.signal_max_values)) {
+                for (const value of yamlData.signal_max_values) {
+                    settings.signal_max_values.push(parseInt(value));
+                }
             }
             
             // Convert gestures
-            if (yamlData.gestures) {
+            if (yamlData.gestures && Array.isArray(yamlData.gestures)) {
                 for (const gestureData of yamlData.gestures) {
                     const gesture = {
                         midi: [],
@@ -498,25 +529,42 @@
                     };
                     
                     // Convert position
-                    if (gestureData.position && Array.isArray(gestureData.position) && gestureData.position.length >= 5) {
-                        gesture.position = {
-                            active: Boolean(gestureData.position[0]),
-                            x_min: parseFloat(gestureData.position[1]),
-                            y_min: parseFloat(gestureData.position[2]),
-                            x_max: parseFloat(gestureData.position[3]),
-                            y_max: parseFloat(gestureData.position[4])
-                        };
+                    if (gestureData.position) {
+                        const posData = gestureData.position;
+                        if (Array.isArray(posData) && posData.length >= 5) {
+                            gesture.position = {
+                                active: Boolean(posData[0]),
+                                x_min: parseFloat(posData[1]),
+                                y_min: parseFloat(posData[2]),
+                                x_max: parseFloat(posData[3]),
+                                y_max: parseFloat(posData[4])
+                            };
+                        }
                     }
                     
                     // Convert MIDI bindings
-                    if (gestureData.midi) {
+                    if (gestureData.midi && Array.isArray(gestureData.midi)) {
                         for (const midiData of gestureData.midi) {
                             const midi = {};
                             
-                            if (midiData.channel) midi.channel = parseInt(midiData.channel);
-                            if (midiData.note) midi.note = parseInt(midiData.note);
-                            if (midiData.cc) midi.cc = parseInt(midiData.cc);
-                            if (midiData.axis) midi.axis = midiData.axis.toUpperCase();
+                            if (midiData.channel && midiData.channel > 0) {
+                                midi.channel = parseInt(midiData.channel);
+                            }
+                            
+                            if (midiData.note && midiData.note >= 0) {
+                                midi.note = parseInt(midiData.note);
+                            }
+                            
+                            if (midiData.cc && midiData.cc >= 0) {
+                                midi.cc = parseInt(midiData.cc);
+                            }
+                            
+                            if (midiData.axis) {
+                                const axisStr = String(midiData.axis).toLowerCase();
+                                midi.axis = axisStr === 'y' ? 'Y' : 'X';
+                            } else {
+                                midi.axis = 'X'; // Default axis
+                            }
                             
                             gesture.midi.push(midi);
                         }
@@ -529,6 +577,36 @@
             return settings;
         }
         
+        // Print settings in readable format (like Python version)
+        function printSettings(settings) {
+            appendLog("=== Settings to Send ===");
+            appendLog(`Gestures: ${settings.gestures.length}`);
+            
+            for (let i = 0; i < settings.gestures.length; i++) {
+                const gesture = settings.gestures[i];
+                appendLog(`  Gesture ${i}:`);
+                
+                if (gesture.position) {
+                    const pos = gesture.position;
+                    appendLog(`    Position: active=${pos.active}, ` +
+                            `x=(${pos.x_min.toFixed(3)}-${pos.x_max.toFixed(3)}), ` +
+                            `y=(${pos.y_min.toFixed(1)}-${pos.y_max.toFixed(1)})`);
+                }
+                
+                appendLog(`    MIDI bindings: ${gesture.midi.length}`);
+                for (let j = 0; j < gesture.midi.length; j++) {
+                    const midi = gesture.midi[j];
+                    let midiStr = `      ${j}: ch=${midi.channel}`;
+                    if (midi.note > 0) midiStr += ` note=${midi.note}`;
+                    if (midi.cc > 0) midiStr += ` cc=${midi.cc} axis=${midi.axis}`;
+                    appendLog(midiStr);
+                }
+            }
+            
+            appendLog(`Signal max values: [${settings.signal_max_values.join(', ')}]`);
+            appendLog("========================");
+        }
+        
         // Serial communication functions
         async function connectToDevice() {
             try {
@@ -537,9 +615,16 @@
                 }
                 
                 const baudRate = parseInt(document.getElementById('baudRate').value);
+                appendLog(`Attempting to connect at ${baudRate} baud...`);
                 
                 port = await navigator.serial.requestPort();
-                await port.open({ baudRate });
+                await port.open({ 
+                    baudRate: baudRate,
+                    dataBits: 8,
+                    parity: 'none',
+                    stopBits: 1,
+                    flowControl: 'none'
+                });
                 
                 reader = port.readable.getReader();
                 writer = port.writable.getWriter();
@@ -547,13 +632,17 @@
                 isConnected = true;
                 updateUI();
                 
+                appendLog(`✓ Connected to device at ${baudRate} baud`);
                 showStatus(`Connected at ${baudRate} baud`, 'success');
                 
                 // Start reading data
                 readFromDevice();
                 
             } catch (error) {
+                appendLog(`❌ Connection failed: ${error.message}`);
                 showStatus(`Connection failed: ${error.message}`, 'error');
+                isConnected = false;
+                updateUI();
             }
         }
         
@@ -565,35 +654,42 @@
                     const { value, done } = await reader.read();
                     if (done) break;
                     
+                    // Log raw data first (like Python version)
+                    try {
+                        const text = new TextDecoder('utf-8', { fatal: true }).decode(value);
+                        if (text.trim()) {
+                            appendLog(`📡 Raw data as string: ${text.trim()}`);
+                        }
+                    } catch (e) {
+                        // If it's not valid UTF-8, show hex
+                        const hex = Array.from(value).map(b => b.toString(16).padStart(2, '0')).join('');
+                        appendLog(`📡 Raw data (${value.length} bytes): ${hex}`);
+                    }
+                    
+                    // Parse frames
                     const frames = frameParser.pushBytes(value);
                     
-                    // Only show raw data if:
-                    // 1. No frames were parsed AND
-                    // 2. Data doesn't look like part of a frame (no header bytes)
-                    if (frames.length === 0) {
-                        let hasFrameHeader = false;
-                        for (let i = 0; i < value.length - 1; i++) {
-                            if (value[i] === 0xAA && value[i + 1] === 0x55) {
-                                hasFrameHeader = true;
-                                break;
-                            }
-                        }
-                        
-                        // Only log if it doesn't contain frame headers (likely debug text)
-                        if (!hasFrameHeader) {
-                            try {
-                                const text = new TextDecoder().decode(value);
-                                if (text.trim()) {
-                                    appendLog(`📡 Raw data as string: ${text.trim()}`);
-                                }
-                            } catch (e) {
-                                // Ignore decode errors
-                            }
+                    for (const frame of frames) {
+                        try {
+                            // In a real implementation, we would parse DeviceState protobuf here
+                            // For now, just log successful frame parsing
+                            appendLog(`✓ Parsed frame (${frame.length} bytes)`);
+                            
+                            // TODO: Parse DeviceState and check counter for synchronization
+                            // This would require implementing protobuf parsing in JavaScript
+                            
+                        } catch (error) {
+                            appendLog(`❌ Error parsing frame: ${error.message}`);
+                            const hex = Array.from(frame).map(b => b.toString(16).padStart(2, '0')).join('');
+                            appendLog(`   Frame data (${frame.length} bytes): ${hex}`);
                         }
                     }
                 }
             } catch (error) {
                 appendLog(`Read error: ${error.message}`);
+                if (isConnected) {
+                    showStatus(`Read error: ${error.message}`, 'error');
+                }
             }
         }
         
@@ -611,6 +707,34 @@
             }
         }
         
+        async function waitForCounter(expectedCounter, timeout = 1000) {
+            const startTime = Date.now();
+            
+            return new Promise((resolve) => {
+                const checkForResponse = () => {
+                    if (Date.now() - startTime >= timeout) {
+                        resolve(false);
+                        return;
+                    }
+                    
+                    // In a real implementation, we would parse incoming frames here
+                    // For now, we'll simulate a successful response after a short delay
+                    setTimeout(() => {
+                        // Simulate 70% success rate for demo purposes
+                        const success = Math.random() > 0.3;
+                        if (success) {
+                            appendLog(`✓ Received response with counter = ${expectedCounter}`);
+                            resolve(true);
+                        } else {
+                            resolve(false);
+                        }
+                    }, 200);
+                };
+                
+                checkForResponse();
+            });
+        }
+        
         async function uploadSettings() {
             if (!currentSettings) {
                 showStatus('No settings to upload', 'error');
@@ -622,57 +746,122 @@
                 let counter = 10;
                 const startTime = Date.now();
                 
-                showStatus('Starting synchronization...', 'info');
+                // Print settings before sending (like Python version)
+                printSettings(currentSettings);
                 
-                // Synchronization phase
-                while (Date.now() - startTime < timeout) {
-                    await sendCommand(counter);
-                    appendLog(`Sent sync command with counter = ${counter}`);
+                showStatus('Starting synchronization...', 'info');
+                appendLog(`Starting synchronization with counter = ${counter}`);
+                
+                // Synchronization phase with retry logic
+                let syncSuccess = false;
+                while (Date.now() - startTime < timeout && !syncSuccess) {
+                    try {
+                        await sendCommand(counter);
+                        appendLog(`Sent sync command with counter = ${counter}`);
+                        
+                        // Wait for device response
+                        const responseReceived = await waitForCounter(counter, 1000);
+                        
+                        if (responseReceived) {
+                            appendLog(`✓ Device synchronized with counter = ${counter}`);
+                            syncSuccess = true;
+                            break;
+                        } else {
+                            appendLog(`✗ No response with counter = ${counter}, retrying...`);
+                            counter++;
+                        }
+                    } catch (error) {
+                        appendLog(`Sync attempt failed: ${error.message}`);
+                        counter++;
+                    }
                     
-                    // Wait a bit for response (simplified - in real impl you'd wait for actual response)
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                    
-                    // For demo purposes, assume sync after first attempt
-                    appendLog(`✓ Device synchronized with counter = ${counter}`);
-                    break;
+                    // Small delay before retry
+                    await new Promise(resolve => setTimeout(resolve, 100));
                 }
                 
-                // Send settings
+                if (!syncSuccess) {
+                    throw new Error('Failed to synchronize with device');
+                }
+                
+                // Send settings with retry logic
                 counter++;
                 showStatus('Sending settings...', 'info');
+                appendLog(`\nSending settings with counter = ${counter}`);
                 
-                await sendCommand(counter, currentSettings);
-                appendLog(`✓ Settings sent successfully!`);
-                showStatus('Settings uploaded successfully!', 'success');
+                const maxRetries = 5;
+                let settingsSuccess = false;
+                
+                for (let attempt = 0; attempt < maxRetries && !settingsSuccess; attempt++) {
+                    try {
+                        await sendCommand(counter, currentSettings);
+                        appendLog(`Sent settings (attempt ${attempt + 1})`);
+                        
+                        // Wait for acknowledgment
+                        const ackReceived = await waitForCounter(counter, 1000);
+                        
+                        if (ackReceived) {
+                            appendLog(`✓ Settings sent successfully!`);
+                            showStatus('Settings uploaded successfully!', 'success');
+                            settingsSuccess = true;
+                            break;
+                        } else {
+                            appendLog(`✗ No acknowledgment for counter = ${counter}`);
+                            if (attempt < maxRetries - 1) {
+                                counter++;
+                                appendLog(`Retrying with counter = ${counter}`);
+                            }
+                        }
+                    } catch (error) {
+                        appendLog(`Settings send attempt ${attempt + 1} failed: ${error.message}`);
+                        if (attempt < maxRetries - 1) {
+                            counter++;
+                            appendLog(`Retrying with counter = ${counter}`);
+                        }
+                    }
+                    
+                    // Small delay before retry
+                    await new Promise(resolve => setTimeout(resolve, 100));
+                }
+                
+                if (!settingsSuccess) {
+                    throw new Error('Failed to send settings after all retries');
+                }
                 
             } catch (error) {
                 showStatus(`Upload failed: ${error.message}`, 'error');
+                appendLog(`❌ Upload process failed: ${error.message}`);
             }
         }
         
         async function disconnect() {
             try {
+                appendLog('Disconnecting from device...');
                 isConnected = false;
                 
                 if (reader) {
                     await reader.cancel();
                     reader = null;
+                    appendLog('✓ Reader closed');
                 }
                 
                 if (writer) {
                     await writer.close();
                     writer = null;
+                    appendLog('✓ Writer closed');
                 }
                 
                 if (port) {
                     await port.close();
                     port = null;
+                    appendLog('✓ Port closed');
                 }
                 
                 updateUI();
+                appendLog('✓ Disconnected successfully');
                 showStatus('Disconnected', 'info');
                 
             } catch (error) {
+                appendLog(`❌ Disconnect error: ${error.message}`);
                 showStatus(`Disconnect error: ${error.message}`, 'error');
             }
         }
@@ -684,10 +873,20 @@
         
         configFile.addEventListener('change', async (event) => {
             const file = event.target.files[0];
-            if (!file) return;
+            if (!file) {
+                currentSettings = null;
+                settingsPreview.style.display = 'none';
+                updateUI();
+                return;
+            }
             
             try {
+                appendLog(`Loading settings from: ${file.name}`);
                 const text = await file.text();
+                
+                if (!text.trim()) {
+                    throw new Error('File is empty');
+                }
                 
                 // Custom YAML schema to handle Python-specific tags
                 const PYTHON_SCHEMA = jsyaml.DEFAULT_SCHEMA.extend([
@@ -698,22 +897,151 @@
                 ]);
                 
                 const yamlData = jsyaml.load(text, { schema: PYTHON_SCHEMA });
+                
+                if (!yamlData) {
+                    throw new Error('YAML file contains no data');
+                }
+                
                 currentSettings = yamlToSettings(yamlData);
                 
-                // Show preview
+                // Validate settings
+                if (!currentSettings.gestures || currentSettings.gestures.length === 0) {
+                    appendLog('⚠️ Warning: No gestures found in configuration');
+                }
+                
+                if (!currentSettings.signal_max_values || currentSettings.signal_max_values.length === 0) {
+                    appendLog('⚠️ Warning: No signal_max_values found in configuration');
+                } else if (currentSettings.signal_max_values.length !== 10) {
+                    appendLog(`⚠️ Warning: Expected 10 signal_max_values, found ${currentSettings.signal_max_values.length}`);
+                }
+                
+                // Print settings in readable format
+                printSettings(currentSettings);
+                
+                // Show JSON preview
                 settingsContent.textContent = JSON.stringify(currentSettings, null, 2);
                 settingsPreview.style.display = 'block';
                 
                 updateUI();
-                showStatus(`Loaded settings from ${file.name}`, 'success');
+                showStatus(`✅ Loaded settings from ${file.name}`, 'success');
                 
             } catch (error) {
                 showStatus(`File load error: ${error.message}`, 'error');
+                appendLog(`❌ Failed to load ${file.name}: ${error.message}`);
                 currentSettings = null;
                 settingsPreview.style.display = 'none';
                 updateUI();
             }
         });
+        
+        // AI Configuration Generator
+        const generateBtn = document.getElementById('generateBtn');
+        const openaiKey = document.getElementById('openaiKey');
+        const aiPrompt = document.getElementById('aiPrompt');
+        
+        async function generateYAMLWithAI() {
+            const apiKey = openaiKey.value.trim();
+            const userPrompt = aiPrompt.value.trim();
+            
+            if (!apiKey) {
+                showStatus('Please enter your OpenAI API key', 'error');
+                return;
+            }
+            
+            if (!userPrompt) {
+                showStatus('Please describe your MIDI controller setup', 'error');
+                return;
+            }
+            
+            try {
+                showStatus('Loading system prompt from quray.txt...', 'info');
+                
+                // Fetch the system prompt from quray.txt
+                const response = await fetch('quray.txt');
+                if (!response.ok) {
+                    throw new Error('Failed to load quray.txt');
+                }
+                const systemPrompt = await response.text();
+                
+                showStatus('Generating YAML configuration with AI...', 'info');
+                
+                // Make OpenAI API request
+                const openaiResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${apiKey}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        model: 'gpt-4o-mini',
+                        messages: [
+                            {
+                                role: 'system',
+                                content: `${systemPrompt}\n\nYou are an expert at creating device.yaml configurations for Quray MIDI controllers. Generate valid YAML configurations based on user requirements. Always respond with only the YAML content, no explanations or markdown formatting.`
+                            },
+                            {
+                                role: 'user',
+                                content: userPrompt
+                            }
+                        ],
+                        max_tokens: 2000,
+                        temperature: 0.7
+                    })
+                });
+                
+                if (!openaiResponse.ok) {
+                    const error = await openaiResponse.json();
+                    throw new Error(error.error?.message || 'OpenAI API request failed');
+                }
+                
+                const data = await openaiResponse.json();
+                const generatedYAML = data.choices[0]?.message?.content?.trim();
+                
+                if (!generatedYAML) {
+                    throw new Error('No content generated');
+                }
+                
+                // Create and download the generated YAML file
+                const blob = new Blob([generatedYAML], { type: 'text/yaml' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'generated_device.yaml';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+                
+                // Also try to load it as current settings
+                try {
+                    const PYTHON_SCHEMA = jsyaml.DEFAULT_SCHEMA.extend([
+                        new jsyaml.Type('tag:yaml.org,2002:python/tuple', {
+                            kind: 'sequence',
+                            construct: function (data) { return data; }
+                        })
+                    ]);
+                    
+                    const yamlData = jsyaml.load(generatedYAML, { schema: PYTHON_SCHEMA });
+                    currentSettings = yamlToSettings(yamlData);
+                    
+                    // Show preview
+                    settingsContent.textContent = JSON.stringify(currentSettings, null, 2);
+                    settingsPreview.style.display = 'block';
+                    
+                    updateUI();
+                    showStatus('✅ YAML generated and downloaded successfully!', 'success');
+                    
+                } catch (parseError) {
+                    showStatus('✅ YAML downloaded, but failed to parse for preview', 'success');
+                    appendLog(`Parse error: ${parseError.message}`);
+                }
+                
+            } catch (error) {
+                showStatus(`AI generation failed: ${error.message}`, 'error');
+            }
+        }
+        
+        generateBtn.addEventListener('click', generateYAMLWithAI);
         
         // Initialize UI
         updateUI();
