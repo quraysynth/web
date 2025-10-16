@@ -1,0 +1,16 @@
+gestures:
+- midi:
+  - channel: 1
+    note: 60          # Нота C4
+  - channel: 1  
+    cc: 24            # LFO rate
+    axis: "y"
+  - channel: 1
+    cc: 26            # LFO depth
+    axis: "y"
+  position:
+  - true              # Активен
+  - 0.1               # x_min
+  - 50.0              # y_min
+  - 0.3               # x_max
+  - 300.0             # y_max

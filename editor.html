@@ -1,0 +1,2323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML Configuration Editor</title>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: #f5f5f5;
+            padding: 0;
+            margin: 0;
+        }
+
+        .container {
+            max-width: 100%;
+            height: 100vh;
+            margin: 0;
+            background: white;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 24px;
+            padding: 20px 20px 0 20px;
+        }
+
+        .main-layout {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            padding: 0 20px 20px 20px;
+            gap: 20px;
+        }
+
+        .left-panel {
+            width: 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        .center-panel {
+            width: 60%;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .right-panel {
+            width: 20%;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            overflow-y: auto;
+        }
+
+        h2 {
+            color: #555;
+            margin-bottom: 15px;
+            font-size: 18px;
+            border-bottom: 2px solid #5521DA;
+            padding-bottom: 8px;
+        }
+
+        .section {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .calib-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .input-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .input-group label {
+            margin-bottom: 5px;
+            color: #666;
+            font-size: 14px;
+            font-weight: 500;
+        }
+
+        .input-group input[type="text"],
+        .input-group input[type="number"],
+        .input-group select {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: border-color 0.2s;
+        }
+
+        .input-group input[type="text"]:focus,
+        .input-group input[type="number"]:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: #5521DA;
+        }
+
+        .config-section {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .color-picker-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .color-picker-group input[type="color"] {
+            width: 100%;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .color-picker-group input[type="text"] {
+            width: 100%;
+        }
+
+        .gradient-preview {
+            height: 50px;
+            border-radius: 4px;
+            margin-top: 10px;
+            border: 1px solid #ddd;
+        }
+
+        .control-panel {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 8px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .control-panel:first-child {
+            flex: 1;
+        }
+
+        .gesture-navigation {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .gesture-counter {
+            font-size: 18px;
+            font-weight: bold;
+            color: #333;
+            min-width: 60px;
+            text-align: center;
+        }
+
+        .nav-button {
+            padding: 8px 16px;
+            background: #5521DA;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .nav-button:hover {
+            background: #4419b8;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .nav-button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+        /* Button colors by function */
+        .btn-create {
+            background: #28a745;
+            border-color: #28a745;
+        }
+
+        .btn-create:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-delete {
+            background: #dc3545;
+            border-color: #dc3545;
+        }
+
+        .btn-delete:hover:not(:disabled) {
+            background: #c82333;
+        }
+
+        .btn-edit {
+            background: #007bff;
+            border-color: #007bff;
+        }
+
+        .btn-edit:hover:not(:disabled) {
+            background: #0069d9;
+        }
+
+        .btn-copy {
+            background: #17a2b8;
+            border-color: #17a2b8;
+        }
+
+        .btn-copy:hover:not(:disabled) {
+            background: #138496;
+        }
+
+        .btn-clear {
+            background: #ffc107;
+            color: #333;
+            border-color: #ffc107;
+        }
+
+        .btn-clear:hover:not(:disabled) {
+            background: #e0a800;
+        }
+
+        .btn-play {
+            background: #28a745;
+            border-color: #28a745;
+            font-weight: bold;
+        }
+
+        .btn-play:hover:not(:disabled) {
+            background: #218838;
+        }
+
+        .btn-neutral {
+            background: #6c757d;
+            border-color: #6c757d;
+        }
+
+        .btn-neutral:hover:not(:disabled) {
+            background: #5a6268;
+        }
+
+        .btn-navigation {
+            background: #e9ecef;
+            color: #495057;
+            border: 1px solid #ced4da;
+        }
+
+        .btn-navigation:hover:not(:disabled) {
+            background: #dee2e6;
+        }
+
+        .gesture-canvas-container {
+            flex: 1;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+        }
+
+        canvas {
+            display: block;
+            max-width: 100%;
+            max-height: 100%;
+            width: auto;
+            height: auto;
+        }
+
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        button {
+            padding: 10px 16px;
+            background: #5521DA;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #4419b8;
+        }
+
+        button.secondary {
+            background: #666;
+        }
+
+        button.secondary:hover {
+            background: #555;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            display: none;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .midi-event {
+            padding: 10px;
+            margin-bottom: 10px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .midi-event-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: flex-start;
+        }
+
+        .midi-event-controls > div {
+            flex: 1 1 auto;
+            min-width: 60px;
+        }
+
+        .midi-event-controls > div:nth-child(1),
+        .midi-event-controls > div:nth-child(2) {
+            flex: 0 1 70px;
+        }
+
+        .midi-event-controls > button {
+            flex: 0 0 auto;
+            align-self: flex-end;
+        }
+
+        .midi-event select,
+        .midi-event input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 13px;
+            box-sizing: border-box;
+        }
+
+        .midi-event label {
+            font-size: 12px;
+            color: #666;
+            margin-bottom: 3px;
+            display: block;
+        }
+
+        #playModeOverlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: #1a1a1a;
+            z-index: 2000;
+        }
+
+        #playModeCanvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        #playModeInfo {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 8px;
+            min-width: 300px;
+            max-width: 400px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        #playModeGestures {
+            font-size: 14px;
+            line-height: 1.6;
+        }
+
+        .play-mode-gesture-item {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: #f9f9f9;
+            border-radius: 4px;
+            border-left: 4px solid #5521DA;
+        }
+
+        .play-mode-gesture-title {
+            font-weight: bold;
+            font-size: 16px;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .play-mode-midi-event {
+            margin-left: 10px;
+            color: #666;
+            font-size: 13px;
+        }
+
+        .play-mode-exit {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            padding: 12px 20px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4);
+            transition: all 0.2s;
+        }
+
+        .play-mode-exit:hover {
+            background: #c82333;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>YAML Configuration Editor</h1>
+
+        <div class="main-layout">
+            <!-- Left Panel (20%) -->
+            <div class="left-panel">
+                <!-- Calibration Section -->
+                <div class="section">
+                    <h2>Calibration</h2>
+                    <div class="calib-grid" id="calibGrid">
+                        <!-- Will be populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Config Section -->
+                <div class="section">
+                    <h2>Configuration</h2>
+                    <div class="input-group">
+                        <label for="defaultPreset">Default Preset</label>
+                        <select id="defaultPreset">
+                            <option value="">Select preset...</option>
+                        </select>
+                    </div>
+
+                    <div style="margin-top: 15px;">
+                        <div class="gradient-preview" id="gradientPreview"></div>
+                        
+                        <div style="display: flex; gap: 10px; margin-top: 10px;">
+                            <input type="color" id="color1Picker" style="flex: 1; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                            <input type="color" id="color2Picker" style="flex: 1; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                        </div>
+                        
+                        <div style="margin-top: 5px;">
+                            <input type="text" id="color1" placeholder="#FE3A86" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 5px;">
+                            <input type="text" id="color2" placeholder="#5521DA" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="section">
+                    <div class="button-group">
+                        <button onclick="saveAll()">Save All</button>
+                        <button class="secondary" onclick="downloadAll()">📦 Download ZIP</button>
+                        <button class="secondary" onclick="location.reload()">Reload</button>
+                    </div>
+                    <div class="status" id="status"></div>
+                </div>
+            </div>
+
+            <!-- Center Panel (60%) -->
+            <div class="center-panel">
+                <!-- Control Panels -->
+                <div style="display: flex; gap: 15px; margin-bottom: 15px;">
+                    <!-- Preset Management -->
+                    <div class="control-panel">
+                        <div class="input-group">
+                            <label for="selectedPreset">Preset</label>
+                            <div style="display: flex; gap: 5px;">
+                                <select id="selectedPreset" style="flex: 1;">
+                                    <option value="">Select preset...</option>
+                                </select>
+                                <button class="nav-button btn-play" onclick="enterPlayMode()" title="Play mode (fullscreen)">▶</button>
+                                <button class="nav-button btn-edit" onclick="renamePreset()" title="Rename preset">✎</button>
+                                <button class="nav-button btn-copy" onclick="copyPreset()" title="Copy preset">⎘</button>
+                                <button class="nav-button btn-delete" onclick="deletePreset()" title="Delete preset">✕</button>
+                                <button class="nav-button btn-clear" onclick="clearPreset()" title="Clear preset">🗑</button>
+                                <button class="nav-button btn-create" onclick="createNewPreset()" title="Create new preset">+</button>
+                                <button class="nav-button btn-neutral" id="undoButton" onclick="undo()" title="Undo (Ctrl+Z)" disabled>↶</button>
+                                <button class="nav-button btn-neutral" id="redoButton" onclick="redo()" title="Redo (Ctrl+Y)" disabled>↷</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Gesture Navigation -->
+                    <div class="control-panel">
+                        <div class="input-group">
+                            <label>Gesture</label>
+                            <div class="gesture-navigation" id="gestureNavContainer">
+                                <button class="nav-button btn-navigation" onclick="previousGesture()">←</button>
+                                <div class="gesture-counter" id="gestureCounter">-/-</div>
+                                <button class="nav-button btn-navigation" onclick="nextGesture()">→</button>
+                                <button class="nav-button btn-create" onclick="startCreateGesture()" title="Create new gesture">+</button>
+                                <button class="nav-button btn-delete" onclick="deleteGesture()" title="Delete current gesture">✕</button>
+                            </div>
+                            <div class="gesture-navigation" id="gestureCreateContainer" style="display: none;">
+                                <div style="color: #666; font-size: 13px;">Draw rectangle on canvas</div>
+                                <button class="nav-button btn-delete" onclick="cancelCreateGesture()" title="Cancel">✕</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Gesture Canvas -->
+                <div class="gesture-canvas-container">
+                    <canvas id="gestureCanvas" width="1200" height="600"></canvas>
+                </div>
+            </div>
+
+            <!-- Right Panel (20%) - MIDI Events -->
+            <div class="right-panel">
+                <div class="section">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin: 0;">MIDI Events</h2>
+                        <button class="nav-button btn-create" onclick="addMidiEvent()" title="Add MIDI event">+</button>
+                    </div>
+                    <div id="midiEventsList"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Play Mode Overlay -->
+        <div id="playModeOverlay" style="display: none;">
+            <canvas id="playModeCanvas"></canvas>
+            <div id="playModeInfo">
+                <div id="playModeGestures"></div>
+            </div>
+            <button class="play-mode-exit" onclick="exitPlayMode()">✕ Exit (ESC)</button>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let calibData = [];
+        let configData = {};
+        let presetsData = {};
+        let presetNames = [];
+        let currentGestureIndex = 0;
+        let currentPresetName = '';
+        let isDragging = false;
+        let dragEdge = null; // 'left', 'right', 'top', 'bottom', 'move'
+        let dragStartX = 0;
+        let dragStartY = 0;
+        let dragStartGestureX = 0;
+        let dragStartGestureY = 0;
+        
+        // Undo/Redo state
+        let undoStack = [];
+        let redoStack = [];
+        const MAX_HISTORY = 10;
+        
+        // Gesture creation state
+        let isCreatingGesture = false;
+        let newGestureStart = null;
+        
+        // Play mode state
+        let isPlayMode = false;
+        let playModeCanvas = null;
+        let playModeCtx = null;
+        let activePlayGestures = [];
+        let playModeMouseX = 0;
+        let playModeMouseY = 0;
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', async () => {
+            await loadAllFiles();
+            setupEventListeners();
+        });
+
+        // Load all YAML files
+        async function loadAllFiles() {
+            try {
+                // Load calib.yml
+                const calibResponse = await fetch('calib.yml');
+                const calibText = await calibResponse.text();
+                calibData = jsyaml.load(calibText) || [];
+                renderCalibration();
+
+                // Load config.yml
+                const configResponse = await fetch('config.yml');
+                const configText = await configResponse.text();
+                configData = jsyaml.load(configText) || {};
+                
+                // Load preset files
+                const presetFiles = ['default.yml', 'test.yml'];
+                for (const file of presetFiles) {
+                    const response = await fetch(`presets/${file}`);
+                    const text = await response.text();
+                    const name = file.replace('.yml', '');
+                    presetsData[name] = jsyaml.load(text) || { gestures: [] };
+                    presetNames.push(name);
+                }
+
+                // Populate preset selectors
+                populatePresetSelectors();
+                renderConfig();
+                
+                // Auto-select default preset
+                if (presetNames.includes('default')) {
+                    document.getElementById('selectedPreset').value = 'default';
+                    currentPresetName = 'default';
+                    currentGestureIndex = 0;
+                    updateGestureCounter();
+                    drawGestures('default');
+                    renderMidiEvents();
+                }
+                
+                // Initialize history buttons
+                updateHistoryButtons();
+                
+                showStatus('Files loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading files:', error);
+                showStatus('Error loading files: ' + error.message, 'error');
+            }
+        }
+
+        // Render calibration inputs
+        function renderCalibration() {
+            const grid = document.getElementById('calibGrid');
+            grid.innerHTML = '';
+            
+            // Ensure we have 7 values
+            while (calibData.length < 7) {
+                calibData.push(0);
+            }
+
+            for (let i = 0; i < 7; i++) {
+                const input = document.createElement('input');
+                input.type = 'number';
+                input.id = `calib${i}`;
+                input.value = calibData[i] || 0;
+                input.style.padding = '8px 12px';
+                input.style.border = '1px solid #ddd';
+                input.style.borderRadius = '4px';
+                input.style.fontSize = '14px';
+                grid.appendChild(input);
+            }
+        }
+
+        // Populate preset selectors
+        function populatePresetSelectors() {
+            const defaultPresetSelect = document.getElementById('defaultPreset');
+            const selectedPresetSelect = document.getElementById('selectedPreset');
+
+            // Clear existing options except the first placeholder
+            while (defaultPresetSelect.options.length > 1) {
+                defaultPresetSelect.remove(1);
+            }
+            while (selectedPresetSelect.options.length > 1) {
+                selectedPresetSelect.remove(1);
+            }
+
+            // Add preset options
+            presetNames.forEach(name => {
+                const option1 = document.createElement('option');
+                option1.value = name;
+                option1.textContent = name;
+                defaultPresetSelect.appendChild(option1);
+
+                const option2 = document.createElement('option');
+                option2.value = name;
+                option2.textContent = name;
+                selectedPresetSelect.appendChild(option2);
+            });
+        }
+
+        // Render config inputs
+        function renderConfig() {
+            document.getElementById('defaultPreset').value = configData.preset || '';
+            document.getElementById('color1').value = configData.color1 || '#FE3A86';
+            document.getElementById('color2').value = configData.color2 || '#5521DA';
+            document.getElementById('color1Picker').value = configData.color1 || '#FE3A86';
+            document.getElementById('color2Picker').value = configData.color2 || '#5521DA';
+            updateGradient();
+        }
+
+        // Update gradient preview
+        function updateGradient() {
+            const color1 = document.getElementById('color1').value;
+            const color2 = document.getElementById('color2').value;
+            const preview = document.getElementById('gradientPreview');
+            preview.style.background = `linear-gradient(to right, ${color1}, ${color2})`;
+        }
+
+        // Draw gestures on canvas
+        function drawGestures(presetName) {
+            if (!presetName || !presetsData[presetName]) return;
+
+            const canvas = document.getElementById('gestureCanvas');
+            const ctx = canvas.getContext('2d');
+            const preset = presetsData[presetName];
+
+            // Clear canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw background
+            ctx.fillStyle = '#f9f9f9';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#e0e0e0';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines (X axis: 0 to 1)
+            for (let i = 0; i <= 10; i++) {
+                const x = (canvas.width / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines (Y axis: 0 to 700)
+            for (let i = 0; i <= 7; i++) {
+                const y = canvas.height - (canvas.height / 700) * i * 100;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw axis labels
+            ctx.fillStyle = '#666';
+            ctx.font = '12px sans-serif';
+            
+            // X axis labels
+            ctx.fillText('X: 0.0', 5, canvas.height - 5);
+            ctx.fillText('1.0', canvas.width - 25, canvas.height - 5);
+            
+            // Y axis labels
+            ctx.fillText('Y: 0', 5, canvas.height - 15);
+            for (let i = 1; i <= 7; i++) {
+                const y = canvas.height - (canvas.height / 700) * i * 100;
+                ctx.fillText(`${i * 100}`, 5, y + 5);
+            }
+
+            // Draw gestures
+            if (preset.gestures && Array.isArray(preset.gestures)) {
+                preset.gestures.forEach((gesture, index) => {
+                    if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                        const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                        
+                        if (!active) return;
+
+                        // Convert coordinates (Y axis is inverted)
+                        const x1 = xMin * canvas.width;
+                        const x2 = xMax * canvas.width;
+                        const y1 = canvas.height - (yMax / 700 * canvas.height);
+                        const y2 = canvas.height - (yMin / 700 * canvas.height);
+
+                        const width = x2 - x1;
+                        const height = y2 - y1;
+
+                        const isSelected = index === currentGestureIndex;
+                        const hue = index * 360 / preset.gestures.length;
+
+                        // Draw rectangle with semi-transparent fill
+                        ctx.fillStyle = isSelected 
+                            ? `hsla(${hue}, 70%, 60%, 0.6)` 
+                            : `hsla(${hue}, 10%, 50%, 0.15)`;
+                        ctx.fillRect(x1, y1, width, height);
+
+                        // Draw border
+                        ctx.strokeStyle = isSelected 
+                            ? `hsla(${hue}, 70%, 40%, 1)` 
+                            : `hsla(${hue}, 10%, 40%, 0.4)`;
+                        ctx.lineWidth = isSelected ? 3 : 1;
+                        ctx.strokeRect(x1, y1, width, height);
+
+                        // Draw label
+                        ctx.fillStyle = isSelected ? '#000' : '#999';
+                        ctx.font = isSelected ? 'bold 16px sans-serif' : '12px sans-serif';
+                        ctx.fillText(`G${index + 1}`, x1 + 5, y1 + 20);
+
+                        // Draw coordinates for selected gesture
+                        if (isSelected) {
+                            ctx.font = '11px monospace';
+                            ctx.fillStyle = '#000';
+                            
+                            // Bottom left corner - start coordinates (x_min, y_min)
+                            const startCoords = `${xMin.toFixed(2)}, ${yMin.toFixed(0)}`;
+                            ctx.fillText(startCoords, x1 + 5, y2 - 5);
+                            
+                            // Top right corner - end coordinates (x_max, y_max)
+                            const endCoords = `${xMax.toFixed(2)}, ${yMax.toFixed(0)}`;
+                            const endCoordsWidth = ctx.measureText(endCoords).width;
+                            ctx.fillText(endCoords, x2 - endCoordsWidth - 5, y1 + 15);
+                        }
+                    }
+                });
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Color picker sync
+            document.getElementById('color1').addEventListener('input', (e) => {
+                document.getElementById('color1Picker').value = e.target.value;
+                updateGradient();
+            });
+
+            document.getElementById('color1Picker').addEventListener('input', (e) => {
+                document.getElementById('color1').value = e.target.value;
+                updateGradient();
+            });
+
+            document.getElementById('color2').addEventListener('input', (e) => {
+                document.getElementById('color2Picker').value = e.target.value;
+                updateGradient();
+            });
+
+            document.getElementById('color2Picker').addEventListener('input', (e) => {
+                document.getElementById('color2').value = e.target.value;
+                updateGradient();
+            });
+
+            // Preset selection
+            document.getElementById('selectedPreset').addEventListener('change', (e) => {
+                currentPresetName = e.target.value;
+                currentGestureIndex = 0;
+                
+                // Clear history when switching presets
+                undoStack = [];
+                redoStack = [];
+                updateHistoryButtons();
+                
+                updateGestureCounter();
+                drawGestures(currentPresetName);
+                renderMidiEvents();
+            });
+
+            // Canvas event handlers
+            const canvas = document.getElementById('gestureCanvas');
+            canvas.addEventListener('mousedown', handleCanvasMouseDown);
+            canvas.addEventListener('mousemove', handleCanvasMouseMove);
+            canvas.addEventListener('mouseup', handleCanvasMouseUp);
+            canvas.addEventListener('mouseleave', handleCanvasMouseLeave);
+
+            // Keyboard shortcuts for undo/redo and gesture creation
+            document.addEventListener('keydown', (e) => {
+                // Cancel gesture creation with Escape
+                if (e.key === 'Escape' && isCreatingGesture) {
+                    e.preventDefault();
+                    cancelCreateGesture();
+                    return;
+                }
+                
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
+                    e.preventDefault();
+                    undo();
+                } else if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) {
+                    e.preventDefault();
+                    redo();
+                }
+            });
+        }
+
+        // Save current preset state to history
+        function saveHistory() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            // Create a deep copy of the current preset
+            const state = {
+                presetName: currentPresetName,
+                preset: JSON.parse(JSON.stringify(presetsData[currentPresetName])),
+                gestureIndex: currentGestureIndex
+            };
+            
+            // Add to undo stack
+            undoStack.push(state);
+            
+            // Limit stack size
+            if (undoStack.length > MAX_HISTORY) {
+                undoStack.shift();
+            }
+            
+            // Clear redo stack when new action is performed
+            redoStack = [];
+            
+            updateHistoryButtons();
+        }
+
+        // Undo last action
+        function undo() {
+            if (undoStack.length === 0) return;
+            
+            // Save current state to redo stack
+            if (currentPresetName && presetsData[currentPresetName]) {
+                const currentState = {
+                    presetName: currentPresetName,
+                    preset: JSON.parse(JSON.stringify(presetsData[currentPresetName])),
+                    gestureIndex: currentGestureIndex
+                };
+                redoStack.push(currentState);
+                
+                if (redoStack.length > MAX_HISTORY) {
+                    redoStack.shift();
+                }
+            }
+            
+            // Restore previous state
+            const state = undoStack.pop();
+            if (state) {
+                presetsData[state.presetName] = JSON.parse(JSON.stringify(state.preset));
+                currentPresetName = state.presetName;
+                currentGestureIndex = state.gestureIndex;
+                
+                // Update UI
+                document.getElementById('selectedPreset').value = currentPresetName;
+                updateGestureCounter();
+                drawGestures(currentPresetName);
+                updateHistoryButtons();
+                renderMidiEvents();
+                
+                showStatus('Undo successful', 'success');
+            }
+        }
+
+        // Redo last undone action
+        function redo() {
+            if (redoStack.length === 0) return;
+            
+            // Save current state to undo stack
+            if (currentPresetName && presetsData[currentPresetName]) {
+                const currentState = {
+                    presetName: currentPresetName,
+                    preset: JSON.parse(JSON.stringify(presetsData[currentPresetName])),
+                    gestureIndex: currentGestureIndex
+                };
+                undoStack.push(currentState);
+                
+                if (undoStack.length > MAX_HISTORY) {
+                    undoStack.shift();
+                }
+            }
+            
+            // Restore redo state
+            const state = redoStack.pop();
+            if (state) {
+                presetsData[state.presetName] = JSON.parse(JSON.stringify(state.preset));
+                currentPresetName = state.presetName;
+                currentGestureIndex = state.gestureIndex;
+                
+                // Update UI
+                document.getElementById('selectedPreset').value = currentPresetName;
+                updateGestureCounter();
+                drawGestures(currentPresetName);
+                updateHistoryButtons();
+                renderMidiEvents();
+                
+                showStatus('Redo successful', 'success');
+            }
+        }
+
+        // Update history button states
+        function updateHistoryButtons() {
+            const undoButton = document.getElementById('undoButton');
+            const redoButton = document.getElementById('redoButton');
+            
+            if (undoButton) {
+                undoButton.disabled = undoStack.length === 0;
+            }
+            if (redoButton) {
+                redoButton.disabled = redoStack.length === 0;
+            }
+        }
+
+        // Check if point is inside any gesture
+        function getGestureAtPoint(x, y) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return -1;
+
+            const canvas = document.getElementById('gestureCanvas');
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || !Array.isArray(preset.gestures)) return -1;
+
+            // Check each gesture to see if point is inside (reverse order for top-most)
+            for (let i = preset.gestures.length - 1; i >= 0; i--) {
+                const gesture = preset.gestures[i];
+                if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                    const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                    
+                    if (!active) continue;
+
+                    // Convert gesture coordinates to canvas coordinates
+                    const x1 = xMin * canvas.width;
+                    const x2 = xMax * canvas.width;
+                    const y1 = canvas.height - (yMax / 700 * canvas.height);
+                    const y2 = canvas.height - (yMin / 700 * canvas.height);
+
+                    // Check if point is within this gesture's bounds
+                    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+                        return i;
+                    }
+                }
+            }
+            return -1;
+        }
+
+        // Get edge near point for selected gesture
+        function getEdgeNearPoint(x, y, tolerance = 10) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return null;
+            
+            const canvas = document.getElementById('gestureCanvas');
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || !Array.isArray(preset.gestures)) return null;
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture || !gesture.position || gesture.position.length < 5) return null;
+
+            const [active, xMin, yMin, xMax, yMax] = gesture.position;
+            if (!active) return null;
+
+            // Convert gesture coordinates to canvas coordinates
+            const x1 = xMin * canvas.width;
+            const x2 = xMax * canvas.width;
+            const y1 = canvas.height - (yMax / 700 * canvas.height);
+            const y2 = canvas.height - (yMin / 700 * canvas.height);
+
+            // Check proximity to edges
+            const nearLeft = Math.abs(x - x1) < tolerance && y >= y1 - tolerance && y <= y2 + tolerance;
+            const nearRight = Math.abs(x - x2) < tolerance && y >= y1 - tolerance && y <= y2 + tolerance;
+            const nearTop = Math.abs(y - y1) < tolerance && x >= x1 - tolerance && x <= x2 + tolerance;
+            const nearBottom = Math.abs(y - y2) < tolerance && x >= x1 - tolerance && x <= x2 + tolerance;
+
+            if (nearLeft) return 'left';
+            if (nearRight) return 'right';
+            if (nearTop) return 'top';
+            if (nearBottom) return 'bottom';
+
+            return null;
+        }
+
+        // Handle canvas mouse move
+        function handleCanvasMouseMove(event) {
+            const canvas = document.getElementById('gestureCanvas');
+            const rect = canvas.getBoundingClientRect();
+            
+            // Get mouse coordinates relative to canvas
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+
+            // If creating gesture and dragging, draw preview
+            if (isCreatingGesture && isDragging && newGestureStart) {
+                drawGestureCreationPreview(newGestureStart.x, newGestureStart.y, x, y);
+                return;
+            }
+
+            if (isDragging && dragEdge) {
+                // Update gesture boundary or move gesture
+                if (dragEdge === 'move') {
+                    moveGesture(x, y);
+                } else {
+                    updateGestureBoundary(x, y);
+                }
+                drawGestures(currentPresetName);
+                return;
+            }
+
+            // Don't change cursor in creation mode
+            if (isCreatingGesture) {
+                return;
+            }
+
+            // Check if near edge of selected gesture
+            const edge = getEdgeNearPoint(x, y);
+            if (edge) {
+                if (edge === 'left' || edge === 'right') {
+                    canvas.style.cursor = 'ew-resize';
+                } else {
+                    canvas.style.cursor = 'ns-resize';
+                }
+            } else {
+                const gestureIndex = getGestureAtPoint(x, y);
+                if (gestureIndex === currentGestureIndex) {
+                    canvas.style.cursor = 'move';
+                } else if (gestureIndex !== -1) {
+                    canvas.style.cursor = 'pointer';
+                } else {
+                    canvas.style.cursor = 'default';
+                }
+            }
+        }
+
+        // Draw preview rectangle while creating gesture
+        function drawGestureCreationPreview(x1, y1, x2, y2) {
+            // Redraw existing gestures
+            drawGestures(currentPresetName);
+            
+            const canvas = document.getElementById('gestureCanvas');
+            const ctx = canvas.getContext('2d');
+            
+            // Draw preview rectangle
+            const x = Math.min(x1, x2);
+            const y = Math.min(y1, y2);
+            const width = Math.abs(x2 - x1);
+            const height = Math.abs(y2 - y1);
+            
+            // Semi-transparent fill
+            ctx.fillStyle = 'rgba(85, 33, 218, 0.3)';
+            ctx.fillRect(x, y, width, height);
+            
+            // Dashed border
+            ctx.strokeStyle = '#5521DA';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+            ctx.strokeRect(x, y, width, height);
+            ctx.setLineDash([]);
+        }
+
+        // Handle canvas mouse down
+        function handleCanvasMouseDown(event) {
+            const canvas = document.getElementById('gestureCanvas');
+            const rect = canvas.getBoundingClientRect();
+            
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+
+            // If in creation mode, start drawing
+            if (isCreatingGesture) {
+                newGestureStart = { x, y };
+                isDragging = true;
+                event.preventDefault();
+                return;
+            }
+
+            // Check if clicking on edge
+            const edge = getEdgeNearPoint(x, y);
+            if (edge) {
+                saveHistory(); // Save state before changing
+                isDragging = true;
+                dragEdge = edge;
+                dragStartX = x;
+                dragStartY = y;
+                event.preventDefault();
+                return;
+            }
+
+            // Check if clicking on gesture
+            const gestureIndex = getGestureAtPoint(x, y);
+            if (gestureIndex !== -1) {
+                // If clicking on currently selected gesture, start move
+                if (gestureIndex === currentGestureIndex && currentPresetName && presetsData[currentPresetName]) {
+                    const preset = presetsData[currentPresetName];
+                    const gesture = preset.gestures[currentGestureIndex];
+                    if (gesture && gesture.position && gesture.position.length >= 5) {
+                        saveHistory(); // Save state before moving
+                        isDragging = true;
+                        dragEdge = 'move';
+                        dragStartX = x;
+                        dragStartY = y;
+                        dragStartGestureX = gesture.position[1]; // xMin
+                        dragStartGestureY = gesture.position[2]; // yMin
+                        event.preventDefault();
+                        return;
+                    }
+                }
+                
+                // Otherwise select the gesture
+                currentGestureIndex = gestureIndex;
+                updateGestureCounter();
+                drawGestures(currentPresetName);
+                renderMidiEvents();
+            }
+        }
+
+        // Handle canvas mouse up
+        function handleCanvasMouseUp(event) {
+            if (isCreatingGesture && isDragging && newGestureStart) {
+                const canvas = document.getElementById('gestureCanvas');
+                const rect = canvas.getBoundingClientRect();
+                
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const x = (event.clientX - rect.left) * scaleX;
+                const y = (event.clientY - rect.top) * scaleY;
+                
+                // Complete the gesture
+                completeCreateGesture(newGestureStart.x, newGestureStart.y, x, y);
+            }
+            
+            isDragging = false;
+            dragEdge = null;
+        }
+
+        // Handle canvas mouse leave
+        function handleCanvasMouseLeave(event) {
+            // Don't cancel gesture creation on mouse leave
+            if (!isCreatingGesture) {
+                isDragging = false;
+                dragEdge = null;
+            }
+        }
+
+        // Apply snapping to a value
+        function applySnapping(value, isXAxis) {
+            const snapTolerance = isXAxis ? 0.005 : 10; // 2.5% for X, 15 units for Y
+            
+            if (isXAxis) {
+                // X axis snapping - screen edges and other gestures
+                const snapPoints = [0, 1.0];
+                
+                // Add boundaries of other gestures for X axis
+                if (currentPresetName && presetsData[currentPresetName]) {
+                    const preset = presetsData[currentPresetName];
+                    if (preset.gestures && Array.isArray(preset.gestures)) {
+                        preset.gestures.forEach((g, idx) => {
+                            if (idx !== currentGestureIndex && g.position && g.position.length >= 5 && g.position[0]) {
+                                snapPoints.push(g.position[1]); // xMin
+                                snapPoints.push(g.position[3]); // xMax
+                            }
+                        });
+                    }
+                }
+                
+                for (let snapPoint of snapPoints) {
+                    if (Math.abs(value - snapPoint) < snapTolerance) {
+                        return snapPoint;
+                    }
+                }
+            } else {
+                // Y axis snapping - screen edges and other gestures
+                const snapPoints = [0, 700];
+                
+                // Add boundaries of other gestures for Y axis
+                if (currentPresetName && presetsData[currentPresetName]) {
+                    const preset = presetsData[currentPresetName];
+                    if (preset.gestures && Array.isArray(preset.gestures)) {
+                        preset.gestures.forEach((g, idx) => {
+                            if (idx !== currentGestureIndex && g.position && g.position.length >= 5 && g.position[0]) {
+                                snapPoints.push(g.position[2]); // yMin
+                                snapPoints.push(g.position[4]); // yMax
+                            }
+                        });
+                    }
+                }
+                
+                for (let snapPoint of snapPoints) {
+                    if (Math.abs(value - snapPoint) < snapTolerance) {
+                        return snapPoint;
+                    }
+                }
+            }
+            
+            return value;
+        }
+
+        // Move entire gesture
+        function moveGesture(x, y) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const canvas = document.getElementById('gestureCanvas');
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || !Array.isArray(preset.gestures)) return;
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture || !gesture.position || gesture.position.length < 5) return;
+
+            let [active, xMin, yMin, xMax, yMax] = gesture.position;
+
+            // Calculate the delta movement
+            const deltaX = (x - dragStartX) / canvas.width;
+            const deltaY = -(y - dragStartY) / canvas.height * 700;
+
+            // Calculate new position
+            let newXMin = dragStartGestureX + deltaX;
+            let newYMin = dragStartGestureY + deltaY;
+
+            // Calculate gesture dimensions
+            const width = xMax - xMin;
+            const height = yMax - yMin;
+
+            // Apply snapping to the min corner
+            newXMin = applySnapping(newXMin, true);
+            newYMin = applySnapping(newYMin, false);
+
+            // Calculate new max values
+            let newXMax = newXMin + width;
+            let newYMax = newYMin + height;
+
+            // Constrain to canvas bounds
+            if (newXMin < 0) {
+                newXMin = 0;
+                newXMax = width;
+            }
+            if (newXMax > 1) {
+                newXMax = 1;
+                newXMin = 1 - width;
+            }
+            if (newYMin < 0) {
+                newYMin = 0;
+                newYMax = height;
+            }
+            if (newYMax > 700) {
+                newYMax = 700;
+                newYMin = 700 - height;
+            }
+
+            // Update the gesture position
+            gesture.position = [active, newXMin, newYMin, newXMax, newYMax];
+        }
+
+        // Update gesture boundary during drag
+        function updateGestureBoundary(x, y) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const canvas = document.getElementById('gestureCanvas');
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || !Array.isArray(preset.gestures)) return;
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture || !gesture.position || gesture.position.length < 5) return;
+
+            let [active, xMin, yMin, xMax, yMax] = gesture.position;
+
+            // Convert mouse position to gesture coordinates
+            let newX = x / canvas.width;
+            let newY = 700 - (y / canvas.height * 700);
+
+            // Apply snapping
+            newX = applySnapping(newX, true);
+            newY = applySnapping(newY, false);
+
+            // Update the appropriate edge
+            if (dragEdge === 'left') {
+                xMin = Math.max(0, Math.min(newX, xMax - 0.01));
+            } else if (dragEdge === 'right') {
+                xMax = Math.min(1, Math.max(newX, xMin + 0.01));
+            } else if (dragEdge === 'top') {
+                yMax = Math.min(700, Math.max(newY, yMin + 1));
+            } else if (dragEdge === 'bottom') {
+                yMin = Math.max(0, Math.min(newY, yMax - 1));
+            }
+
+            // Update the gesture position
+            gesture.position = [active, xMin, yMin, xMax, yMax];
+        }
+
+        // Update gesture counter display
+        function updateGestureCounter() {
+            const counter = document.getElementById('gestureCounter');
+            if (!currentPresetName || !presetsData[currentPresetName]) {
+                counter.textContent = '-/-';
+                return;
+            }
+
+            const preset = presetsData[currentPresetName];
+            const totalGestures = preset.gestures ? preset.gestures.length : 0;
+            
+            if (totalGestures === 0) {
+                counter.textContent = '0/0';
+            } else {
+                counter.textContent = `${currentGestureIndex + 1}/${totalGestures}`;
+            }
+        }
+
+        // Navigate to previous gesture
+        function previousGesture() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const totalGestures = preset.gestures ? preset.gestures.length : 0;
+            
+            if (totalGestures === 0) return;
+            
+            currentGestureIndex = (currentGestureIndex - 1 + totalGestures) % totalGestures;
+            updateGestureCounter();
+            drawGestures(currentPresetName);
+            renderMidiEvents();
+        }
+
+        // Navigate to next gesture
+        function nextGesture() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const totalGestures = preset.gestures ? preset.gestures.length : 0;
+            
+            if (totalGestures === 0) return;
+            
+            currentGestureIndex = (currentGestureIndex + 1) % totalGestures;
+            updateGestureCounter();
+            drawGestures(currentPresetName);
+            renderMidiEvents();
+        }
+
+        // MIDI note conversion
+        const noteNames = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+        
+        function midiNoteToName(noteNumber) {
+            const octave = Math.floor(noteNumber / 12) - 1;
+            const noteName = noteNames[noteNumber % 12];
+            return `${noteName}${octave}`;
+        }
+
+        function noteNameToMidi(noteName) {
+            const match = noteName.match(/^([A-G]#?)(-?\d+)$/);
+            if (!match) return 60; // Default to C4
+            
+            const [, note, octave] = match;
+            const noteIndex = noteNames.indexOf(note);
+            if (noteIndex === -1) return 60;
+            
+            return (parseInt(octave) + 1) * 12 + noteIndex;
+        }
+
+        // Render MIDI events list
+        function renderMidiEvents() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || preset.gestures.length === 0) {
+                document.getElementById('midiEventsList').innerHTML = '<p style="color: #999; font-size: 13px;">No gesture selected</p>';
+                return;
+            }
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture.midi || !Array.isArray(gesture.midi)) {
+                gesture.midi = [];
+            }
+
+            const listContainer = document.getElementById('midiEventsList');
+            listContainer.innerHTML = '';
+
+            if (gesture.midi.length === 0) {
+                listContainer.innerHTML = '<p style="color: #999; font-size: 13px;">No MIDI events. Click + to add.</p>';
+                return;
+            }
+
+            gesture.midi.forEach((event, index) => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'midi-event';
+                
+                const isNote = event.note !== undefined;
+                const isCC = event.cc !== undefined;
+                
+                let controlsHTML = '<div class="midi-event-controls">';
+                
+                // Channel selector
+                controlsHTML += `
+                    <div>
+                        <label>Channel</label>
+                        <select onchange="updateMidiEvent(${index}, 'channel', parseInt(this.value))">
+                            ${Array.from({length: 16}, (_, i) => i + 1).map(ch => 
+                                `<option value="${ch}" ${event.channel === ch ? 'selected' : ''}>${ch}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                `;
+                
+                // Type selector
+                controlsHTML += `
+                    <div>
+                        <label>Type</label>
+                        <select onchange="updateMidiEventType(${index}, this.value)">
+                            <option value="note" ${isNote ? 'selected' : ''}>Note</option>
+                            <option value="cc" ${isCC ? 'selected' : ''}>CC</option>
+                        </select>
+                    </div>
+                `;
+                
+                // Type-specific controls
+                if (isNote) {
+                    controlsHTML += `
+                        <div>
+                            <label>Note</label>
+                            <input type="text" value="${midiNoteToName(event.note)}" 
+                                   onchange="updateMidiEvent(${index}, 'note', noteNameToMidi(this.value))"
+                                   placeholder="C4">
+                        </div>
+                    `;
+                } else if (isCC) {
+                    controlsHTML += `
+                        <div>
+                            <label>CC</label>
+                            <input type="number" min="0" max="127" value="${event.cc || 0}" 
+                                   onchange="updateMidiEvent(${index}, 'cc', parseInt(this.value))">
+                        </div>
+                        <div>
+                            <label>Axis</label>
+                            <select onchange="updateMidiEvent(${index}, 'axis', this.value)">
+                                <option value="x" ${event.axis === 'x' ? 'selected' : ''}>X</option>
+                                <option value="y" ${event.axis === 'y' ? 'selected' : ''}>Y</option>
+                            </select>
+                        </div>
+                    `;
+                }
+                
+                // Delete button
+                controlsHTML += `
+                    <button class="nav-button btn-delete" onclick="deleteMidiEvent(${index})" title="Delete event">✕</button>
+                `;
+                
+                controlsHTML += '</div>';
+                eventDiv.innerHTML = controlsHTML;
+                listContainer.appendChild(eventDiv);
+            });
+        }
+
+        // Add new MIDI event
+        function addMidiEvent() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || preset.gestures.length === 0) {
+                showStatus('No gesture selected', 'error');
+                return;
+            }
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture.midi) {
+                gesture.midi = [];
+            }
+
+            // Save history
+            saveHistory();
+
+            // Add default note event
+            gesture.midi.push({
+                channel: 1,
+                note: 60
+            });
+
+            renderMidiEvents();
+            showStatus('MIDI event added', 'success');
+        }
+
+        // Delete MIDI event
+        function deleteMidiEvent(index) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.midi || index < 0 || index >= gesture.midi.length) return;
+
+            // Save history
+            saveHistory();
+
+            gesture.midi.splice(index, 1);
+            renderMidiEvents();
+            showStatus('MIDI event deleted', 'success');
+        }
+
+        // Update MIDI event property
+        function updateMidiEvent(index, property, value) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.midi || index < 0 || index >= gesture.midi.length) return;
+
+            // Save history
+            saveHistory();
+
+            gesture.midi[index][property] = value;
+            showStatus('MIDI event updated', 'success');
+        }
+
+        // Update MIDI event type (Note <-> CC)
+        function updateMidiEventType(index, type) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.midi || index < 0 || index >= gesture.midi.length) return;
+
+            // Save history
+            saveHistory();
+
+            const event = gesture.midi[index];
+            const channel = event.channel || 1;
+
+            if (type === 'note') {
+                gesture.midi[index] = {
+                    channel: channel,
+                    note: 60
+                };
+            } else if (type === 'cc') {
+                gesture.midi[index] = {
+                    channel: channel,
+                    cc: 0,
+                    axis: 'y'
+                };
+            }
+
+            renderMidiEvents();
+            showStatus('MIDI event type changed', 'success');
+        }
+
+        // Delete current gesture
+        function deleteGesture() {
+            if (!currentPresetName || !presetsData[currentPresetName]) {
+                showStatus('Please select a preset first', 'error');
+                return;
+            }
+
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || preset.gestures.length === 0) {
+                showStatus('No gestures to delete', 'error');
+                return;
+            }
+
+            // Save history before deleting
+            saveHistory();
+
+            // Remove the gesture
+            preset.gestures.splice(currentGestureIndex, 1);
+
+            // Adjust current gesture index
+            if (currentGestureIndex >= preset.gestures.length && preset.gestures.length > 0) {
+                currentGestureIndex = preset.gestures.length - 1;
+            } else if (preset.gestures.length === 0) {
+                currentGestureIndex = 0;
+            }
+
+            // Update display
+            updateGestureCounter();
+            drawGestures(currentPresetName);
+            renderMidiEvents();
+
+            showStatus('Gesture deleted', 'success');
+        }
+
+        // Start creating a new gesture
+        function startCreateGesture() {
+            if (!currentPresetName) {
+                showStatus('Please select a preset first', 'error');
+                return;
+            }
+
+            isCreatingGesture = true;
+            newGestureStart = null;
+            
+            // Switch UI to creation mode
+            document.getElementById('gestureNavContainer').style.display = 'none';
+            document.getElementById('gestureCreateContainer').style.display = 'flex';
+            
+            // Change cursor
+            const canvas = document.getElementById('gestureCanvas');
+            canvas.style.cursor = 'crosshair';
+            
+            // Redraw to show all gestures dimmed
+            drawGestures(currentPresetName);
+            
+            showStatus('Draw a rectangle on the canvas to create a new gesture', 'success');
+        }
+
+        // Cancel gesture creation
+        function cancelCreateGesture() {
+            isCreatingGesture = false;
+            newGestureStart = null;
+            
+            // Switch UI back to navigation mode
+            document.getElementById('gestureNavContainer').style.display = 'flex';
+            document.getElementById('gestureCreateContainer').style.display = 'none';
+            
+            // Reset cursor
+            const canvas = document.getElementById('gestureCanvas');
+            canvas.style.cursor = 'default';
+            
+            // Redraw
+            drawGestures(currentPresetName);
+            
+            showStatus('Gesture creation cancelled', 'success');
+        }
+
+        // Complete gesture creation
+        function completeCreateGesture(x1, y1, x2, y2) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const canvas = document.getElementById('gestureCanvas');
+            
+            // Convert to gesture coordinates
+            const xMin = Math.min(x1, x2) / canvas.width;
+            const xMax = Math.max(x1, x2) / canvas.width;
+            const yMin = Math.min(700 - y2 / canvas.height * 700, 700 - y1 / canvas.height * 700);
+            const yMax = Math.max(700 - y2 / canvas.height * 700, 700 - y1 / canvas.height * 700);
+            
+            // Ensure minimum size
+            if (xMax - xMin < 0.01 || yMax - yMin < 1) {
+                showStatus('Gesture too small, please draw a larger area', 'error');
+                return;
+            }
+            
+            // Save history before creating
+            saveHistory();
+            
+            // Create new gesture with default MIDI settings
+            const newGesture = {
+                midi: [
+                    {
+                        channel: 1,
+                        note: 60
+                    }
+                ],
+                position: [true, xMin, yMin, xMax, yMax]
+            };
+            
+            // Add to preset
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures) {
+                preset.gestures = [];
+            }
+            preset.gestures.push(newGesture);
+            
+            // Select the new gesture
+            currentGestureIndex = preset.gestures.length - 1;
+            
+            // Exit creation mode
+            isCreatingGesture = false;
+            newGestureStart = null;
+            
+            // Switch UI back
+            document.getElementById('gestureNavContainer').style.display = 'flex';
+            document.getElementById('gestureCreateContainer').style.display = 'none';
+            
+            // Reset cursor
+            canvas.style.cursor = 'default';
+            
+            // Update display
+            updateGestureCounter();
+            drawGestures(currentPresetName);
+            renderMidiEvents();
+            
+            showStatus(`New gesture created (${currentGestureIndex + 1}/${preset.gestures.length})`, 'success');
+        }
+
+        // Rename current preset
+        function renamePreset() {
+            if (!currentPresetName) {
+                showStatus('Please select a preset to rename', 'error');
+                return;
+            }
+
+            const newName = prompt(`Rename preset "${currentPresetName}" to:`, currentPresetName);
+            
+            if (!newName) return; // User cancelled
+            
+            // Validate new name
+            if (newName === currentPresetName) return; // Same name, no change
+            
+            if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+                showStatus('Preset name can only contain letters, numbers, hyphens, and underscores', 'error');
+                return;
+            }
+            
+            if (presetsData[newName]) {
+                showStatus(`Preset "${newName}" already exists`, 'error');
+                return;
+            }
+
+            const oldName = currentPresetName;
+
+            // Rename the preset
+            presetsData[newName] = presetsData[oldName];
+            delete presetsData[oldName];
+            
+            // Update presetNames array
+            const index = presetNames.indexOf(oldName);
+            if (index !== -1) {
+                presetNames[index] = newName;
+            }
+            
+            // Update config if this was the default preset
+            if (configData.preset === oldName) {
+                configData.preset = newName;
+            }
+            
+            // Update current preset name
+            currentPresetName = newName;
+            
+            // Rebuild preset selectors
+            populatePresetSelectors();
+            
+            // Restore selections
+            document.getElementById('selectedPreset').value = newName;
+            document.getElementById('defaultPreset').value = configData.preset || '';
+            
+            showStatus(`Preset renamed from "${oldName}" to "${newName}"`, 'success');
+        }
+
+        // Copy current preset
+        function copyPreset() {
+            if (!currentPresetName) {
+                showStatus('Please select a preset to copy', 'error');
+                return;
+            }
+
+            const newName = prompt(`Copy preset "${currentPresetName}" as:`, currentPresetName + '_copy');
+            
+            if (!newName) return; // User cancelled
+            
+            // Validate new name
+            if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+                showStatus('Preset name can only contain letters, numbers, hyphens, and underscores', 'error');
+                return;
+            }
+            
+            if (presetsData[newName]) {
+                showStatus(`Preset "${newName}" already exists`, 'error');
+                return;
+            }
+
+            // Create a deep copy of the preset
+            presetsData[newName] = JSON.parse(JSON.stringify(presetsData[currentPresetName]));
+            
+            // Add to presetNames array
+            presetNames.push(newName);
+            
+            // Rebuild preset selectors
+            populatePresetSelectors();
+            
+            // Switch to the new copy
+            currentPresetName = newName;
+            currentGestureIndex = 0;
+            document.getElementById('selectedPreset').value = newName;
+            updateGestureCounter();
+            drawGestures(newName);
+            
+            showStatus(`Preset copied as "${newName}"`, 'success');
+        }
+
+        // Delete current preset
+        function deletePreset() {
+            if (!currentPresetName) {
+                showStatus('Please select a preset to delete', 'error');
+                return;
+            }
+
+            const confirmed = confirm(`Are you sure you want to DELETE preset "${currentPresetName}"?\n\nThis will permanently remove the preset and cannot be undone.`);
+            
+            if (!confirmed) return;
+
+            const deletedName = currentPresetName;
+
+            // Delete the preset
+            delete presetsData[deletedName];
+            
+            // Remove from presetNames array
+            const index = presetNames.indexOf(deletedName);
+            if (index !== -1) {
+                presetNames.splice(index, 1);
+            }
+            
+            // Clear config if this was the default preset
+            if (configData.preset === deletedName) {
+                configData.preset = '';
+            }
+            
+            // Switch to first available preset or clear
+            if (presetNames.length > 0) {
+                currentPresetName = presetNames[0];
+                currentGestureIndex = 0;
+            } else {
+                currentPresetName = '';
+                currentGestureIndex = 0;
+            }
+            
+            // Clear history
+            undoStack = [];
+            redoStack = [];
+            
+            // Rebuild preset selectors
+            populatePresetSelectors();
+            
+            // Restore selections
+            document.getElementById('selectedPreset').value = currentPresetName || '';
+            document.getElementById('defaultPreset').value = configData.preset || '';
+            
+            updateGestureCounter();
+            updateHistoryButtons();
+            drawGestures(currentPresetName);
+            
+            showStatus(`Preset "${deletedName}" deleted`, 'success');
+        }
+
+        // Clear current preset
+        function clearPreset() {
+            if (!currentPresetName) {
+                showStatus('Please select a preset to clear', 'error');
+                return;
+            }
+
+            const confirmed = confirm(`Are you sure you want to clear all gestures from preset "${currentPresetName}"?`);
+            
+            if (!confirmed) return;
+
+            // Save state before clearing
+            saveHistory();
+
+            // Clear all gestures
+            presetsData[currentPresetName] = { gestures: [] };
+            
+            // Reset gesture index
+            currentGestureIndex = 0;
+            updateGestureCounter();
+            drawGestures(currentPresetName);
+            
+            showStatus(`Preset "${currentPresetName}" cleared`, 'success');
+        }
+
+        // Create new preset
+        function createNewPreset() {
+            const newName = prompt('Enter name for the new preset:', 'new_preset');
+            
+            if (!newName) return; // User cancelled
+            
+            // Validate new name
+            if (!/^[a-zA-Z0-9_-]+$/.test(newName)) {
+                showStatus('Preset name can only contain letters, numbers, hyphens, and underscores', 'error');
+                return;
+            }
+            
+            if (presetsData[newName]) {
+                showStatus(`Preset "${newName}" already exists`, 'error');
+                return;
+            }
+
+            // Create new empty preset
+            presetsData[newName] = { gestures: [] };
+            
+            // Add to presetNames array
+            presetNames.push(newName);
+            
+            // Rebuild preset selectors
+            populatePresetSelectors();
+            
+            // Switch to the new preset
+            currentPresetName = newName;
+            currentGestureIndex = 0;
+            document.getElementById('selectedPreset').value = newName;
+            updateGestureCounter();
+            drawGestures(newName);
+            
+            showStatus(`New preset "${newName}" created`, 'success');
+        }
+
+        // Save all changes
+        function saveAll() {
+            try {
+                // Update calibData from inputs
+                for (let i = 0; i < 7; i++) {
+                    const value = document.getElementById(`calib${i}`).value;
+                    calibData[i] = parseInt(value) || 0;
+                }
+
+                // Update configData from inputs
+                configData.preset = document.getElementById('defaultPreset').value;
+                configData.color1 = document.getElementById('color1').value;
+                configData.color2 = document.getElementById('color2').value;
+
+                showStatus('Changes saved in memory. Use "Download All Files" to export.', 'success');
+            } catch (error) {
+                showStatus('Error saving changes: ' + error.message, 'error');
+            }
+        }
+
+        // Download all files
+        async function downloadAll() {
+            try {
+                const zip = new JSZip();
+                
+                // Add calib.yml
+                const calibYaml = calibData.join('\n') + '\n';
+                zip.file('calib.yml', calibYaml);
+
+                // Add config.yml
+                const configYaml = jsyaml.dump(configData, { lineWidth: -1 });
+                zip.file('config.yml', configYaml);
+
+                // Add presets folder
+                const presetsFolder = zip.folder('presets');
+                for (const [name, data] of Object.entries(presetsData)) {
+                    const presetYaml = jsyaml.dump(data, { lineWidth: -1 });
+                    presetsFolder.file(`${name}.yml`, presetYaml);
+                }
+
+                // Generate and download ZIP
+                const blob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'data.zip';
+                a.click();
+                URL.revokeObjectURL(url);
+
+                showStatus('data.zip downloaded successfully', 'success');
+            } catch (error) {
+                showStatus('Error creating archive: ' + error.message, 'error');
+            }
+        }
+
+        // Download a file
+        function downloadFile(filename, content) {
+            const blob = new Blob([content], { type: 'text/yaml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Show status message
+        function showStatus(message, type) {
+            const status = document.getElementById('status');
+            status.textContent = message;
+            status.className = `status ${type}`;
+            status.style.display = 'block';
+            
+            setTimeout(() => {
+                status.style.display = 'none';
+            }, 3000);
+        }
+
+        // Enter play mode
+        function enterPlayMode() {
+            if (!currentPresetName || !presetsData[currentPresetName]) {
+                showStatus('Please select a preset first', 'error');
+                return;
+            }
+
+            isPlayMode = true;
+            const overlay = document.getElementById('playModeOverlay');
+            overlay.style.display = 'block';
+
+            playModeCanvas = document.getElementById('playModeCanvas');
+            playModeCtx = playModeCanvas.getContext('2d');
+
+            // Set canvas size to window size
+            resizePlayModeCanvas();
+
+            // Setup event listeners
+            playModeCanvas.addEventListener('mousemove', handlePlayModeMouseMove);
+            window.addEventListener('resize', resizePlayModeCanvas);
+            document.addEventListener('keydown', handlePlayModeKeydown);
+
+            // Initial draw
+            drawPlayMode();
+            updatePlayModeInfo();
+        }
+
+        // Exit play mode
+        function exitPlayMode() {
+            isPlayMode = false;
+            const overlay = document.getElementById('playModeOverlay');
+            overlay.style.display = 'none';
+
+            if (playModeCanvas) {
+                playModeCanvas.removeEventListener('mousemove', handlePlayModeMouseMove);
+            }
+            window.removeEventListener('resize', resizePlayModeCanvas);
+            document.removeEventListener('keydown', handlePlayModeKeydown);
+
+            activePlayGestures = [];
+        }
+
+        // Handle keydown in play mode
+        function handlePlayModeKeydown(e) {
+            if (e.key === 'Escape' && isPlayMode) {
+                exitPlayMode();
+            }
+        }
+
+        // Resize play mode canvas
+        function resizePlayModeCanvas() {
+            if (!playModeCanvas) return;
+            
+            playModeCanvas.width = window.innerWidth;
+            playModeCanvas.height = window.innerHeight;
+            
+            if (isPlayMode) {
+                drawPlayMode();
+            }
+        }
+
+        // Handle mouse move in play mode
+        function handlePlayModeMouseMove(event) {
+            if (!isPlayMode || !currentPresetName || !presetsData[currentPresetName]) return;
+
+            const rect = playModeCanvas.getBoundingClientRect();
+            const scaleX = playModeCanvas.width / rect.width;
+            const scaleY = playModeCanvas.height / rect.height;
+            const x = (event.clientX - rect.left) * scaleX;
+            const y = (event.clientY - rect.top) * scaleY;
+
+            // Convert to gesture coordinates
+            const gestureX = x / playModeCanvas.width;
+            const gestureY = 700 - (y / playModeCanvas.height * 700);
+
+            // Store mouse coordinates
+            playModeMouseX = gestureX;
+            playModeMouseY = gestureY;
+
+            // Find active gestures
+            const preset = presetsData[currentPresetName];
+            activePlayGestures = [];
+
+            if (preset.gestures && Array.isArray(preset.gestures)) {
+                preset.gestures.forEach((gesture, index) => {
+                    if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                        const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                        
+                        if (active && gestureX >= xMin && gestureX <= xMax && gestureY >= yMin && gestureY <= yMax) {
+                            activePlayGestures.push({ gesture, index, gestureX, gestureY });
+                        }
+                    }
+                });
+            }
+
+            drawPlayMode();
+            updatePlayModeInfo();
+        }
+
+        // Draw play mode canvas
+        function drawPlayMode() {
+            if (!playModeCtx || !currentPresetName || !presetsData[currentPresetName]) return;
+
+            const canvas = playModeCanvas;
+            const ctx = playModeCtx;
+            const preset = presetsData[currentPresetName];
+
+            // Clear canvas
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            
+            // Vertical lines
+            for (let i = 0; i <= 10; i++) {
+                const x = (canvas.width / 10) * i;
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            
+            // Horizontal lines
+            for (let i = 0; i <= 7; i++) {
+                const y = canvas.height - (canvas.height / 700) * i * 100;
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw axis labels
+            ctx.fillStyle = '#888';
+            ctx.font = '14px sans-serif';
+            
+            // Y axis labels
+            for (let i = 0; i <= 7; i++) {
+                const y = canvas.height - (canvas.height / 700) * i * 100;
+                ctx.fillText(`${i * 100}`, 10, y - 5);
+            }
+
+            // Draw gestures
+            if (preset.gestures && Array.isArray(preset.gestures)) {
+                preset.gestures.forEach((gesture, index) => {
+                    if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                        const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                        
+                        if (!active) return;
+
+                        // Convert coordinates
+                        const x1 = xMin * canvas.width;
+                        const x2 = xMax * canvas.width;
+                        const y1 = canvas.height - (yMax / 700 * canvas.height);
+                        const y2 = canvas.height - (yMin / 700 * canvas.height);
+
+                        const width = x2 - x1;
+                        const height = y2 - y1;
+
+                        const isActive = activePlayGestures.some(ag => ag.index === index);
+                        const hue = index * 360 / preset.gestures.length;
+
+                        // Draw rectangle
+                        if (isActive) {
+                            ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
+                            ctx.fillRect(x1, y1, width, height);
+                            ctx.strokeStyle = `hsla(${hue}, 70%, 40%, 1)`;
+                            ctx.lineWidth = 4;
+                        } else {
+                            ctx.fillStyle = `hsla(${hue}, 50%, 50%, 0.3)`;
+                            ctx.fillRect(x1, y1, width, height);
+                            ctx.strokeStyle = `hsla(${hue}, 50%, 40%, 0.6)`;
+                            ctx.lineWidth = 2;
+                        }
+                        ctx.strokeRect(x1, y1, width, height);
+
+                        // Draw label
+                        ctx.fillStyle = isActive ? '#fff' : '#aaa';
+                        ctx.font = isActive ? 'bold 24px sans-serif' : 'bold 18px sans-serif';
+                        ctx.fillText(`G${index + 1}`, x1 + 10, y1 + 30);
+                    }
+                });
+            }
+        }
+
+        // Update play mode info panel
+        function updatePlayModeInfo() {
+            const container = document.getElementById('playModeGestures');
+            
+            if (activePlayGestures.length === 0) {
+                container.innerHTML = '<div style="color: #999;">Move mouse over gestures to see MIDI events</div>';
+                return;
+            }
+
+            let html = '';
+            activePlayGestures.forEach(({ gesture, index, gestureX, gestureY }) => {
+                html += '<div class="play-mode-gesture-item">';
+                html += `<div class="play-mode-gesture-title">Gesture ${index + 1}</div>`;
+                
+                if (gesture.midi && Array.isArray(gesture.midi)) {
+                    gesture.midi.forEach((event) => {
+                        html += '<div class="play-mode-midi-event">';
+                        
+                        if (event.note !== undefined) {
+                            html += `♪ CH${event.channel} Note: ${midiNoteToName(event.note)} (${event.note})`;
+                        } else if (event.cc !== undefined) {
+                            // Calculate CC value based on axis and position within gesture
+                            const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                            let ccValue = 0;
+                            
+                            if (event.axis === 'x') {
+                                // Normalize X position within gesture bounds (0-1) and scale to 0-127
+                                const normalizedX = (gestureX - xMin) / (xMax - xMin);
+                                ccValue = Math.round(Math.max(0, Math.min(127, normalizedX * 127)));
+                            } else {
+                                // Normalize Y position within gesture bounds (0-1) and scale to 0-127
+                                const normalizedY = (gestureY - yMin) / (yMax - yMin);
+                                ccValue = Math.round(Math.max(0, Math.min(127, normalizedY * 127)));
+                            }
+                            
+                            html += `⚙ CH${event.channel} CC${event.cc} (${event.axis?.toUpperCase() || 'Y'} axis): <strong>${ccValue}</strong>`;
+                        }
+                        
+                        html += '</div>';
+                    });
+                } else {
+                    html += '<div class="play-mode-midi-event" style="color: #999;">No MIDI events</div>';
+                }
+                
+                html += '</div>';
+            });
+            
+            container.innerHTML = html;
+        }
+    </script>
+</body>
+</html>
+
