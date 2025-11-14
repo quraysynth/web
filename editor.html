@@ -385,6 +385,35 @@
             box-sizing: border-box;
         }
 
+        .midi-event input[type="range"] {
+            padding: 0;
+            height: 6px;
+            background: #ddd;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .midi-event input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #5521DA;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        .midi-event input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #5521DA;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+        }
+
         .midi-event label {
             font-size: 12px;
             color: #666;
@@ -418,6 +447,19 @@
             min-width: 300px;
             max-width: 400px;
             box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        }
+
+        .audio-indicator {
+            display: inline-block;
+            margin-left: 5px;
+            color: #28a745;
+            font-size: 18px;
+            animation: pulse 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
         }
 
         #playModeGestures {
@@ -622,12 +664,37 @@
         let activePlayGestures = [];
         let playModeMouseX = 0;
         let playModeMouseY = 0;
+        
+        // Audio synthesis state
+        let audioContext = null;
+        let masterGain = null;
+        let activeNotes = new Map(); // Map of note keys to oscillator/gain pairs
+        let globalFilter = null; // Global filter for all notes
+        let reverbNode = null; // Convolver for reverb
+        let dryGain = null; // Dry signal gain
+        let wetGain = null; // Wet (reverb) signal gain
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', async () => {
             await loadAllFiles();
             setupEventListeners();
         });
+
+        // Normalize preset data - ensure CC events have bottom/top
+        function normalizePresetData(preset) {
+            if (!preset || !preset.gestures) return;
+            
+            preset.gestures.forEach(gesture => {
+                if (gesture.midi && Array.isArray(gesture.midi)) {
+                    gesture.midi.forEach(event => {
+                        if (event.cc !== undefined) {
+                            if (event.bottom === undefined) event.bottom = 0;
+                            if (event.top === undefined) event.top = 127;
+                        }
+                    });
+                }
+            });
+        }
 
         // Load all YAML files
         async function loadAllFiles() {
@@ -650,6 +717,7 @@
                     const text = await response.text();
                     const name = file.replace('.yml', '');
                     presetsData[name] = jsyaml.load(text) || { gestures: [] };
+                    normalizePresetData(presetsData[name]);
                     presetNames.push(name);
                 }
 
@@ -1500,6 +1568,12 @@
                 const isNote = event.note !== undefined;
                 const isCC = event.cc !== undefined;
                 
+                // Ensure CC events have bottom/top defaults
+                if (isCC) {
+                    if (event.bottom === undefined) event.bottom = 0;
+                    if (event.top === undefined) event.top = 127;
+                }
+                
                 let controlsHTML = '<div class="midi-event-controls">';
                 
                 // Channel selector
@@ -1536,6 +1610,9 @@
                         </div>
                     `;
                 } else if (isCC) {
+                    const ccBottom = event.bottom !== undefined ? event.bottom : 0;
+                    const ccTop = event.top !== undefined ? event.top : 127;
+                    const singleValue = event.singleValue !== undefined ? event.singleValue : false;
                     controlsHTML += `
                         <div>
                             <label>CC</label>
@@ -1549,6 +1626,26 @@
                                 <option value="y" ${event.axis === 'y' ? 'selected' : ''}>Y</option>
                             </select>
                         </div>
+                        <div style="flex-basis: 100%; display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                            <input type="checkbox" id="singleValueCheck${index}" ${singleValue ? 'checked' : ''} 
+                                   onchange="toggleSingleValue(${index}, this.checked)"
+                                   style="width: auto; margin: 0;">
+                            <label for="singleValueCheck${index}" style="margin: 0; font-size: 13px;">Single value</label>
+                        </div>
+                        <div>
+                            <label>Bottom: <span id="ccBottomValue${index}">${ccBottom}</span></label>
+                            <input type="range" min="0" max="127" value="${ccBottom}" 
+                                   id="ccBottomSlider${index}"
+                                   oninput="handleCCSliderChange(${index}, 'bottom', parseInt(this.value))"
+                                   style="width: 100%;">
+                        </div>
+                        <div>
+                            <label>Top: <span id="ccTopValue${index}">${ccTop}</span></label>
+                            <input type="range" min="0" max="127" value="${ccTop}" 
+                                   id="ccTopSlider${index}"
+                                   oninput="handleCCSliderChange(${index}, 'top', parseInt(this.value))"
+                                   style="width: 100%;">
+                        </div>
                     `;
                 }
                 
@@ -1561,6 +1658,7 @@
                 eventDiv.innerHTML = controlsHTML;
                 listContainer.appendChild(eventDiv);
             });
+            
         }
 
         // Add new MIDI event
@@ -1608,6 +1706,96 @@
             showStatus('MIDI event deleted', 'success');
         }
 
+        // Handle CC slider change with single value support
+        function handleCCSliderChange(index, property, value) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.midi || index < 0 || index >= gesture.midi.length) return;
+            
+            // Save history before making changes
+            saveHistory();
+            
+            const event = gesture.midi[index];
+            const singleValue = event.singleValue !== undefined ? event.singleValue : false;
+            
+            // Update the changed property
+            event[property] = value;
+            
+            // If single value mode is enabled, sync both sliders
+            if (singleValue) {
+                event.bottom = value;
+                event.top = value;
+                
+                // Update both slider UI elements
+                const bottomSlider = document.getElementById(`ccBottomSlider${index}`);
+                const topSlider = document.getElementById(`ccTopSlider${index}`);
+                const bottomValue = document.getElementById(`ccBottomValue${index}`);
+                const topValue = document.getElementById(`ccTopValue${index}`);
+                
+                if (bottomSlider) {
+                    bottomSlider.value = value;
+                }
+                if (topSlider) {
+                    topSlider.value = value;
+                }
+                if (bottomValue) {
+                    bottomValue.textContent = value;
+                }
+                if (topValue) {
+                    topValue.textContent = value;
+                }
+            }
+            
+            showStatus('MIDI event updated', 'success');
+        }
+
+        // Toggle single value mode
+        function toggleSingleValue(index, enabled) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.midi || index < 0 || index >= gesture.midi.length) return;
+            
+            // Save history
+            saveHistory();
+            
+            const event = gesture.midi[index];
+            event.singleValue = enabled;
+            
+            if (enabled) {
+                // When enabling, set both to the current value (use bottom as reference, or top if bottom is not set)
+                const currentValue = event.bottom !== undefined ? event.bottom : (event.top !== undefined ? event.top : 64);
+                event.bottom = currentValue;
+                event.top = currentValue;
+                
+                // Update UI
+                const bottomSlider = document.getElementById(`ccBottomSlider${index}`);
+                const topSlider = document.getElementById(`ccTopSlider${index}`);
+                const bottomValue = document.getElementById(`ccBottomValue${index}`);
+                const topValue = document.getElementById(`ccTopValue${index}`);
+                
+                if (bottomSlider) {
+                    bottomSlider.value = currentValue;
+                }
+                if (topSlider) {
+                    topSlider.value = currentValue;
+                }
+                if (bottomValue) {
+                    bottomValue.textContent = currentValue;
+                }
+                if (topValue) {
+                    topValue.textContent = currentValue;
+                }
+            }
+            
+            showStatus('MIDI event updated', 'success');
+        }
+
         // Update MIDI event property
         function updateMidiEvent(index, property, value) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
@@ -1648,7 +1836,10 @@
                 gesture.midi[index] = {
                     channel: channel,
                     cc: 0,
-                    axis: 'y'
+                    axis: 'y',
+                    bottom: 0,
+                    top: 127,
+                    singleValue: false
                 };
             }
 
@@ -2082,12 +2273,270 @@
             }, 3000);
         }
 
+        // Create reverb impulse response
+        function createReverbImpulse(duration = 2, decay = 2) {
+            const sampleRate = audioContext.sampleRate;
+            const length = sampleRate * duration;
+            const impulse = audioContext.createBuffer(2, length, sampleRate);
+            const impulseL = impulse.getChannelData(0);
+            const impulseR = impulse.getChannelData(1);
+            
+            for (let i = 0; i < length; i++) {
+                const n = length - i;
+                impulseL[i] = (Math.random() * 2 - 1) * Math.pow(n / length, decay);
+                impulseR[i] = (Math.random() * 2 - 1) * Math.pow(n / length, decay);
+            }
+            
+            return impulse;
+        }
+
+        // Initialize audio context
+        function initAudio() {
+            if (!audioContext) {
+                audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                
+                // Create global filter (lowpass)
+                globalFilter = audioContext.createBiquadFilter();
+                globalFilter.type = 'lowpass';
+                globalFilter.frequency.value = 5000; // Default cutoff
+                globalFilter.Q.value = 1; // Default resonance
+                
+                // Create reverb
+                reverbNode = audioContext.createConvolver();
+                reverbNode.buffer = createReverbImpulse(2, 2);
+                
+                // Create dry/wet gains
+                dryGain = audioContext.createGain();
+                dryGain.gain.value = 1.0; // Full dry signal
+                
+                wetGain = audioContext.createGain();
+                wetGain.gain.value = 0.0; // No reverb by default
+                
+                // Create master gain
+                masterGain = audioContext.createGain();
+                masterGain.gain.value = 0.3; // Master volume
+                
+                // Connect the chain: filter -> dry + wet -> master -> destination
+                globalFilter.connect(dryGain);
+                globalFilter.connect(reverbNode);
+                reverbNode.connect(wetGain);
+                
+                dryGain.connect(masterGain);
+                wetGain.connect(masterGain);
+                masterGain.connect(audioContext.destination);
+            }
+            
+            // Resume context if suspended (needed for user interaction requirement)
+            if (audioContext.state === 'suspended') {
+                audioContext.resume();
+            }
+        }
+
+        // Convert MIDI note number to frequency
+        function midiNoteToFrequency(note) {
+            return 440 * Math.pow(2, (note - 69) / 12);
+        }
+
+        // Process CC events
+        function processCCEvents(activeGestures) {
+            if (!audioContext || !globalFilter) return;
+
+            // Collect all CC events from active gestures
+            const ccValues = {
+                1: null, // Filter cutoff
+                2: null, // Resonance
+                3: null  // Reverb
+            };
+
+            activeGestures.forEach(({ gesture, gestureX, gestureY }) => {
+                if (gesture.midi && Array.isArray(gesture.midi)) {
+                    gesture.midi.forEach(event => {
+                        if (event.cc !== undefined && ccValues.hasOwnProperty(event.cc)) {
+                            // Calculate CC value based on axis and position within gesture
+                            const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                            const ccBottom = event.bottom !== undefined ? event.bottom : 0;
+                            const ccTop = event.top !== undefined ? event.top : 127;
+                            let normalizedValue = 0;
+                            
+                            if (event.axis === 'x') {
+                                const normalizedX = (gestureX - xMin) / (xMax - xMin);
+                                normalizedValue = Math.max(0, Math.min(1, normalizedX));
+                            } else {
+                                const normalizedY = (gestureY - yMin) / (yMax - yMin);
+                                normalizedValue = Math.max(0, Math.min(1, normalizedY));
+                            }
+                            
+                            // Map normalized value (0-1) to CC range (bottom-top)
+                            const ccValue = Math.round(ccBottom + normalizedValue * (ccTop - ccBottom));
+                            
+                            // Use the highest value if multiple gestures control the same CC
+                            if (ccValues[event.cc] === null || ccValue > ccValues[event.cc]) {
+                                ccValues[event.cc] = ccValue;
+                            }
+                        }
+                    });
+                }
+            });
+
+            const now = audioContext.currentTime;
+            const smoothTime = 0.05; // 50ms smooth transition
+
+            // CC1: Filter cutoff (20Hz - 20kHz)
+            if (ccValues[1] !== null) {
+                const normalizedValue = ccValues[1] / 127;
+                // Exponential scale for better perceptual response
+                const minFreq = 20;
+                const maxFreq = 20000;
+                const cutoffFreq = minFreq * Math.pow(maxFreq / minFreq, normalizedValue);
+                globalFilter.frequency.setTargetAtTime(cutoffFreq, now, smoothTime);
+            }
+
+            // CC2: Resonance/Q (0.1 - 30)
+            if (ccValues[2] !== null) {
+                const normalizedValue = ccValues[2] / 127;
+                // Exponential scale for resonance
+                const minQ = 0.1;
+                const maxQ = 30;
+                const qValue = minQ * Math.pow(maxQ / minQ, normalizedValue);
+                globalFilter.Q.setTargetAtTime(qValue, now, smoothTime);
+            }
+
+            // CC3: Reverb wet/dry mix (0.0 - 1.0)
+            if (ccValues[3] !== null) {
+                const normalizedValue = ccValues[3] / 127;
+                wetGain.gain.setTargetAtTime(normalizedValue * 0.5, now, smoothTime); // Max 50% wet
+                dryGain.gain.setTargetAtTime(1.0 - normalizedValue * 0.3, now, smoothTime); // Reduce dry slightly
+            }
+
+            // Reset to defaults if no CC events
+            if (ccValues[1] === null) {
+                globalFilter.frequency.setTargetAtTime(5000, now, smoothTime);
+            }
+            if (ccValues[2] === null) {
+                globalFilter.Q.setTargetAtTime(1, now, smoothTime);
+            }
+            if (ccValues[3] === null) {
+                wetGain.gain.setTargetAtTime(0, now, smoothTime);
+                dryGain.gain.setTargetAtTime(1.0, now, smoothTime);
+            }
+        }
+
+        // Start playing a note
+        function playNote(noteNumber, velocity = 127) {
+            if (!audioContext) return;
+            
+            const noteKey = `note_${noteNumber}`;
+            
+            // Don't play if already playing
+            if (activeNotes.has(noteKey)) return;
+            
+            const frequency = midiNoteToFrequency(noteNumber);
+            const now = audioContext.currentTime;
+            
+            // Create main oscillator (triangle wave for softer sound)
+            const oscillator = audioContext.createOscillator();
+            oscillator.type = 'triangle';
+            oscillator.frequency.value = frequency;
+            
+            // Create a second oscillator for richer sound (perfect fifth)
+            const oscillator2 = audioContext.createOscillator();
+            oscillator2.type = 'sine';
+            oscillator2.frequency.value = frequency * 1.5; // Perfect fifth
+            
+            // Create gain nodes
+            const gainNode = audioContext.createGain();
+            const gainNode2 = audioContext.createGain();
+            
+            // Main oscillator louder, second one quieter for depth
+            const volume = (velocity / 127) * 0.25;
+            gainNode.gain.value = 0;
+            gainNode2.gain.value = 0;
+            
+            // ADSR envelope - Attack
+            gainNode.gain.setValueAtTime(0, now);
+            gainNode.gain.linearRampToValueAtTime(volume, now + 0.05); // 50ms attack
+            gainNode2.gain.setValueAtTime(0, now);
+            gainNode2.gain.linearRampToValueAtTime(volume * 0.3, now + 0.05);
+            
+            // Connect nodes - route through global filter
+            oscillator.connect(gainNode);
+            oscillator2.connect(gainNode2);
+            gainNode.connect(globalFilter);
+            gainNode2.connect(globalFilter);
+            
+            // Start oscillators
+            oscillator.start();
+            oscillator2.start();
+            
+            // Store reference
+            activeNotes.set(noteKey, { oscillator, oscillator2, gainNode, gainNode2 });
+        }
+
+        // Stop playing a note
+        function stopNote(noteNumber) {
+            const noteKey = `note_${noteNumber}`;
+            
+            if (activeNotes.has(noteKey)) {
+                const { oscillator, oscillator2, gainNode, gainNode2 } = activeNotes.get(noteKey);
+                
+                // Fade out to avoid clicks (Release phase of ADSR)
+                const now = audioContext.currentTime;
+                const releaseTime = 0.1; // 100ms release
+                
+                gainNode.gain.setValueAtTime(gainNode.gain.value, now);
+                gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
+                
+                gainNode2.gain.setValueAtTime(gainNode2.gain.value, now);
+                gainNode2.gain.linearRampToValueAtTime(0, now + releaseTime);
+                
+                // Stop after fade out
+                oscillator.stop(now + releaseTime);
+                oscillator2.stop(now + releaseTime);
+                
+                activeNotes.delete(noteKey);
+            }
+        }
+
+        // Stop all notes
+        function stopAllNotes() {
+            for (const [noteKey, noteData] of activeNotes.entries()) {
+                try {
+                    const now = audioContext.currentTime;
+                    const releaseTime = 0.1;
+                    
+                    if (noteData.gainNode) {
+                        noteData.gainNode.gain.setValueAtTime(noteData.gainNode.gain.value, now);
+                        noteData.gainNode.gain.linearRampToValueAtTime(0, now + releaseTime);
+                    }
+                    
+                    if (noteData.gainNode2) {
+                        noteData.gainNode2.gain.setValueAtTime(noteData.gainNode2.gain.value, now);
+                        noteData.gainNode2.gain.linearRampToValueAtTime(0, now + releaseTime);
+                    }
+                    
+                    if (noteData.oscillator) {
+                        noteData.oscillator.stop(now + releaseTime);
+                    }
+                    
+                    if (noteData.oscillator2) {
+                        noteData.oscillator2.stop(now + releaseTime);
+                    }
+                } catch (e) {
+                    // Ignore errors if already stopped
+                }
+            }
+            activeNotes.clear();
+        }
+
         // Enter play mode
         function enterPlayMode() {
             if (!currentPresetName || !presetsData[currentPresetName]) {
                 showStatus('Please select a preset first', 'error');
                 return;
             }
+
+            // Initialize audio
+            initAudio();
 
             isPlayMode = true;
             const overlay = document.getElementById('playModeOverlay');
@@ -2107,6 +2556,9 @@
             // Initial draw
             drawPlayMode();
             updatePlayModeInfo();
+            
+            // Initialize audio parameters to defaults
+            processCCEvents([]);
         }
 
         // Exit play mode
@@ -2120,6 +2572,20 @@
             }
             window.removeEventListener('resize', resizePlayModeCanvas);
             document.removeEventListener('keydown', handlePlayModeKeydown);
+
+            // Stop all playing notes
+            stopAllNotes();
+            
+            // Reset audio parameters to defaults
+            if (audioContext && globalFilter) {
+                const now = audioContext.currentTime;
+                globalFilter.frequency.setTargetAtTime(5000, now, 0.1);
+                globalFilter.Q.setTargetAtTime(1, now, 0.1);
+                if (wetGain && dryGain) {
+                    wetGain.gain.setTargetAtTime(0, now, 0.1);
+                    dryGain.gain.setTargetAtTime(1.0, now, 0.1);
+                }
+            }
 
             activePlayGestures = [];
         }
@@ -2163,6 +2629,7 @@
 
             // Find active gestures
             const preset = presetsData[currentPresetName];
+            const previousActiveGestures = activePlayGestures;
             activePlayGestures = [];
 
             if (preset.gestures && Array.isArray(preset.gestures)) {
@@ -2177,8 +2644,59 @@
                 });
             }
 
+            // Update audio playback based on active gestures
+            updateAudioPlayback(previousActiveGestures, activePlayGestures);
+            
+            // Process CC events from active gestures
+            processCCEvents(activePlayGestures);
+
             drawPlayMode();
             updatePlayModeInfo();
+        }
+
+        // Update audio playback based on gesture changes
+        function updateAudioPlayback(previousGestures, currentGestures) {
+            if (!audioContext) return;
+
+            // Get sets of notes that should be playing
+            const previousNotes = new Set();
+            const currentNotes = new Set();
+
+            // Collect notes from previous gestures
+            previousGestures.forEach(({ gesture }) => {
+                if (gesture.midi && Array.isArray(gesture.midi)) {
+                    gesture.midi.forEach(event => {
+                        if (event.note !== undefined) {
+                            previousNotes.add(event.note);
+                        }
+                    });
+                }
+            });
+
+            // Collect notes from current gestures
+            currentGestures.forEach(({ gesture }) => {
+                if (gesture.midi && Array.isArray(gesture.midi)) {
+                    gesture.midi.forEach(event => {
+                        if (event.note !== undefined) {
+                            currentNotes.add(event.note);
+                        }
+                    });
+                }
+            });
+
+            // Stop notes that are no longer active
+            for (const note of previousNotes) {
+                if (!currentNotes.has(note)) {
+                    stopNote(note);
+                }
+            }
+
+            // Start notes that became active
+            for (const note of currentNotes) {
+                if (!previousNotes.has(note)) {
+                    playNote(note);
+                }
+            }
         }
 
         // Draw play mode canvas
@@ -2278,6 +2796,8 @@
             }
 
             let html = '';
+            let hasActiveNotes = false;
+            
             activePlayGestures.forEach(({ gesture, index, gestureX, gestureY }) => {
                 html += '<div class="play-mode-gesture-item">';
                 html += `<div class="play-mode-gesture-title">Gesture ${index + 1}</div>`;
@@ -2287,23 +2807,48 @@
                         html += '<div class="play-mode-midi-event">';
                         
                         if (event.note !== undefined) {
-                            html += `♪ CH${event.channel} Note: ${midiNoteToName(event.note)} (${event.note})`;
+                            hasActiveNotes = true;
+                            html += `♪ CH${event.channel} Note: ${midiNoteToName(event.note)} (${event.note}) <span class="audio-indicator">🔊</span>`;
                         } else if (event.cc !== undefined) {
                             // Calculate CC value based on axis and position within gesture
                             const [active, xMin, yMin, xMax, yMax] = gesture.position;
-                            let ccValue = 0;
+                            const ccBottom = event.bottom !== undefined ? event.bottom : 0;
+                            const ccTop = event.top !== undefined ? event.top : 127;
+                            let normalizedValue = 0;
                             
                             if (event.axis === 'x') {
-                                // Normalize X position within gesture bounds (0-1) and scale to 0-127
+                                // Normalize X position within gesture bounds (0-1)
                                 const normalizedX = (gestureX - xMin) / (xMax - xMin);
-                                ccValue = Math.round(Math.max(0, Math.min(127, normalizedX * 127)));
+                                normalizedValue = Math.max(0, Math.min(1, normalizedX));
                             } else {
-                                // Normalize Y position within gesture bounds (0-1) and scale to 0-127
+                                // Normalize Y position within gesture bounds (0-1)
                                 const normalizedY = (gestureY - yMin) / (yMax - yMin);
-                                ccValue = Math.round(Math.max(0, Math.min(127, normalizedY * 127)));
+                                normalizedValue = Math.max(0, Math.min(1, normalizedY));
                             }
                             
-                            html += `⚙ CH${event.channel} CC${event.cc} (${event.axis?.toUpperCase() || 'Y'} axis): <strong>${ccValue}</strong>`;
+                            // Map normalized value (0-1) to CC range (bottom-top)
+                            const ccValue = Math.round(ccBottom + normalizedValue * (ccTop - ccBottom));
+                            
+                            // Add description for special CC numbers
+                            let ccDescription = '';
+                            let ccIcon = '⚙';
+                            if (event.cc === 1) {
+                                ccDescription = ' (Filter Cutoff)';
+                                ccIcon = '🎛';
+                            } else if (event.cc === 2) {
+                                ccDescription = ' (Resonance)';
+                                ccIcon = '🔊';
+                            } else if (event.cc === 3) {
+                                ccDescription = ' (Reverb)';
+                                ccIcon = '✨';
+                            }
+                            
+                            html += `${ccIcon} CH${event.channel} CC${event.cc}${ccDescription} (${event.axis?.toUpperCase() || 'Y'} axis): <strong>${ccValue}</strong>`;
+                            
+                            // Add active indicator for special CCs
+                            if (event.cc >= 1 && event.cc <= 3) {
+                                html += '<span class="audio-indicator">●</span>';
+                            }
                         }
                         
                         html += '</div>';
