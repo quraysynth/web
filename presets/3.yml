@@ -1,0 +1,77 @@
+gestures:
+  - midi:
+      - channel: 3
+        note: 88
+    position:
+      - true
+      - 0
+      - 0
+      - 0.14622188727142899
+      - 700
+    cv: []
+  - midi:
+      - channel: 2
+        note: 63
+    position:
+      - true
+      - 0.14622188727142899
+      - 0
+      - 0.280258617270239
+      - 700
+    cv: []
+  - midi:
+      - channel: 2
+        note: 69
+    position:
+      - true
+      - 0.280258617270239
+      - 0
+      - 0.4319701717504262
+      - 700
+    cv: []
+  - midi:
+      - channel: 2
+        note: 64
+    position:
+      - true
+      - 0.4319701717504264
+      - 0
+      - 0.5883463567490381
+      - 699.9999999999999
+    cv: []
+  - midi:
+      - channel: 2
+        note: 73
+      - channel: 2
+        cc: 93
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.588346356749038
+      - 0
+      - 0.7207568125024789
+      - 700
+    cv: []
+  - midi:
+      - channel: 2
+        note: 85
+    position:
+      - true
+      - 0.7203522272024115
+      - 0
+      - 0.8584506762920946
+      - 700
+    cv: []
+  - midi:
+      - channel: 2
+        note: 63
+    position:
+      - true
+      - 0.8598706913648806
+      - 0
+      - 1
+      - 700
+    cv: []

@@ -1,0 +1,21 @@
+gestures:
+  - midi:
+      - channel: 4
+        note: 61
+      - channel: 4
+        cc: .nan
+        axis: x
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        note: 61
+      - channel: 1
+        note: 60
+    position:
+      - true
+      - 0.007108008409027775
+      - 0
+      - 0.9935028360636229
+      - 700
+    cv: []

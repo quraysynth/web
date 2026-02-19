@@ -1,161 +1,221 @@
 gestures:
-- midi:
-  - channel: 1
-    note: 60          # Нота C4
-  - channel: 1  
-    cc: 24            # LFO rate
-    axis: "y"
-  - channel: 1
-    cc: 26            # LFO depth
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.1               # x_min
-  - 50.0              # y_min
-  - 0.3               # x_max
-  - 300.0             # y_max
-
-- midi:
-  - channel: 2
-    note: 62          # Нота D4
-  - channel: 1  
-    cc: 30            # Delay time
-    axis: "y"
-  - channel: 1
-    cc: 31            # Delay feedback
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.2               # x_min
-  - 100.0             # y_min
-  - 0.4               # x_max
-  - 400.0             # y_max
-
-- midi:
-  - channel: 1
-    note: 64          # Нота E4
-  - channel: 1  
-    cc: 35            # VCO 2 pitch
-    axis: "y"
-  - channel: 1
-    cc: 40            # VCO 2 level
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.5               # x_min
-  - 70.0              # y_min
-  - 0.7               # x_max
-  - 250.0             # y_max
-
-- midi:
-  - channel: 3
-    note: 65          # Нота F4
-  - channel: 1  
-    cc: 36            # VCO 1 shape
-    axis: "y"
-  - channel: 1
-    cc: 56            # LFO target
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.4               # x_min
-  - 150.0             # y_min
-  - 0.6               # x_max
-  - 350.0             # y_max
-
-- midi:
-  - channel: 4
-    note: 67          # Нота G4
-  - channel: 1  
-    cc: 24            # LFO rate
-    axis: "y"
-  - channel: 1
-    cc: 31            # Delay feedback
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.3               # x_min
-  - 80.0              # y_min
-  - 0.5               # x_max
-  - 300.0             # y_max
-
-- midi:
-  - channel: 3
-    note: 69          # Нота A4
-  - channel: 1  
-    cc: 30            # Delay time
-    axis: "y"
-  - channel: 1
-    cc: 26            # LFO depth
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.0               # x_min
-  - 200.0             # y_min
-  - 0.2               # x_max
-  - 600.0             # y_max
-
-- midi:
-  - channel: 2
-    note: 71          # Нота B4
-  - channel: 1  
-    cc: 35            # VCO 2 pitch
-    axis: "y"
-  - channel: 1
-    cc: 40            # VCO 2 level
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.6               # x_min
-  - 100.0             # y_min
-  - 0.8               # x_max
-  - 300.0             # y_max
-
-- midi:
-  - channel: 2
-    note: 72          # Нота C5
-  - channel: 1  
-    cc: 56            # LFO target
-    axis: "y"
-  - channel: 1
-    cc: 26            # LFO depth
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.8               # x_min
-  - 50.0              # y_min
-  - 1.0               # x_max
-  - 700.0             # y_max
-
-- midi:
-  - channel: 3
-    note: 74          # Нота D5
-  - channel: 1  
-    cc: 24            # LFO rate
-    axis: "y"
-  - channel: 1
-    cc: 31            # Delay feedback
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.4               # x_min
-  - 200.0             # y_min
-  - 0.8               # x_max
-  - 600.0             # y_max
-
-- midi:
-  - channel: 1
-    note: 76          # Нота E5
-  - channel: 1  
-    cc: 30            # Delay time
-    axis: "y"
-  - channel: 1
-    cc: 36            # VCO 1 shape
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.2               # x_min
-  - 300.0             # y_min
-  - 0.4               # x_max
-  - 500.0             # y_max
-
+  - midi:
+      - channel: 1
+        note: 60
+      - channel: 1
+        cc: 24
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 26
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.1
+      - 50
+      - 0.3
+      - 300
+    cv: []
+  - midi:
+      - channel: 2
+        note: 62
+      - channel: 1
+        cc: 30
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 31
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.2
+      - 100
+      - 0.4
+      - 400
+    cv: []
+  - midi:
+      - channel: 1
+        note: 64
+      - channel: 1
+        cc: 35
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 40
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.5
+      - 70
+      - 0.7
+      - 250
+    cv: []
+  - midi:
+      - channel: 3
+        note: 65
+      - channel: 1
+        cc: 36
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 56
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.4
+      - 150
+      - 0.6
+      - 350
+    cv: []
+  - midi:
+      - channel: 4
+        note: 67
+      - channel: 1
+        cc: 24
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 31
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.3
+      - 80
+      - 0.5
+      - 300
+    cv: []
+  - midi:
+      - channel: 3
+        note: 69
+      - channel: 1
+        cc: 30
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 26
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0
+      - 200
+      - 0.2
+      - 600
+    cv: []
+  - midi:
+      - channel: 2
+        note: 71
+      - channel: 1
+        cc: 35
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 40
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.6
+      - 100
+      - 0.8
+      - 300
+    cv: []
+  - midi:
+      - channel: 2
+        note: 72
+      - channel: 1
+        cc: 56
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 26
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.8
+      - 50
+      - 1
+      - 700
+    cv: []
+  - midi:
+      - channel: 3
+        note: 74
+      - channel: 1
+        cc: 24
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 31
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.4
+      - 200
+      - 0.8
+      - 600
+    cv: []
+  - midi:
+      - channel: 1
+        note: 76
+      - channel: 1
+        cc: 30
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+      - channel: 1
+        cc: 36
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.2
+      - 300
+      - 0.4
+      - 500
+    cv: []

@@ -1,0 +1,29 @@
+gestures:
+  - midi:
+      - channel: 1
+        cc: 26
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.5
+      - 0
+      - 1
+      - 700
+    cv: []
+  - midi:
+      - channel: 1
+        cc: 56
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0
+      - 0
+      - 0.5
+      - 700
+    cv: []

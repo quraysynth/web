@@ -1,0 +1,55 @@
+gestures:
+  - midi:
+      - channel: 3
+        note: 50
+      - channel: 3
+        cc: 11
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0
+      - 0
+      - 0.2983831533719709
+      - 700
+    cv: []
+  - midi:
+      - channel: 4
+        cc: 7
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.2983831533719709
+      - 0
+      - 1
+      - 700
+    cv: []
+  - midi:
+      - channel: 3
+        cc: 64
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0
+      - 352.1547439638311
+      - 0.2983831533719709
+      - 700
+    cv: []
+  - midi:
+      - channel: 4
+        note: 69
+    position:
+      - true
+      - 0.5097515811749994
+      - 0
+      - 0.8032048353093011
+      - 352.1547439638311
+    cv: []

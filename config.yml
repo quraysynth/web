@@ -1,3 +1,12 @@
-preset: default
-color1: "#FE3A86"
-color2: "#5521DA"
+preset: test
+color1: '#FE3A86'
+color2: '#5521DA'
+wifi_ssid: matso
+wifi_password: '11223344'
+wifi_ap_ssid: Quray
+wifi_ap_password: ''
+distance_min_avg_speed: 50
+distance_max_avg_speed: 85
+distance_avg_reset_threshold: 100
+x_avg_speed: 80
+valid_streak_threshold: 5

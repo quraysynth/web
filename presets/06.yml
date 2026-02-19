@@ -1,0 +1,15 @@
+gestures:
+  - midi:
+      - channel: 2
+        cc: 105
+        axis: 'y'
+        bottom: 0
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0.005947943470488659
+      - 16.014685606182088
+      - 1
+      - 697.1270080482252
+    cv: []

@@ -1,16 +1,42 @@
 gestures:
-- midi:
-  - channel: 1
-    note: 60          # Нота C4
-  - channel: 1  
-    cc: 24            # LFO rate
-    axis: "y"
-  - channel: 1
-    cc: 26            # LFO depth
-    axis: "y"
-  position:
-  - true              # Активен
-  - 0.1               # x_min
-  - 50.0              # y_min
-  - 0.3               # x_max
-  - 300.0             # y_max
+  - midi:
+      - channel: 2
+        note: 60
+      - channel: 1
+        cc: 24
+        axis: 'y'
+        bottom: 36
+        top: 36
+        singleValue: true
+      - channel: 2
+        cc: 26
+        axis: 'y'
+        bottom: 33
+        top: 127
+        singleValue: false
+    position:
+      - true
+      - 0
+      - 110.24999999999996
+      - 0.29833333333333334
+      - 620.8333333333333
+    cv:
+      - channel: 2
+        axis: 'y'
+        bottom: -5
+        top: 5
+        singleValue: false
+  - midi:
+      - channel: 1
+        cc: 24
+        axis: 'y'
+        bottom: 81
+        top: 81
+        singleValue: true
+    cv: []
+    position:
+      - true
+      - 0.34249999999999975
+      - 0
+      - 1
+      - 268.9166666666667
