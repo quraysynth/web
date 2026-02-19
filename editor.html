@@ -3,9 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YAML Configuration Editor</title>
-    <script src="https://cdn.jsdelivr.net/npm/js-yaml@4.1.0/dist/js-yaml.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+    <title>Quray Configuration Editor</title>
+    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
+    <link rel="icon" type="image/x-icon" href="/favicon.ico">
+    <script src="/lib/js-yaml.min.js"></script>
+    <script src="/lib/jszip.min.js"></script>
     <style>
         * {
             box-sizing: border-box;
@@ -15,7 +17,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: #f5f5f5;
+            background: #000000;
+            color: #ffffff;
             padding: 0;
             margin: 0;
         }
@@ -24,17 +27,109 @@
             max-width: 100%;
             height: 100vh;
             margin: 0;
-            background: white;
+            background: #000000;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
         h1 {
-            color: #333;
+            color: #ffffff;
             margin-bottom: 20px;
             font-size: 24px;
             padding: 20px 20px 0 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .serial-btn {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #333;
+            color: #ccc;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-left: auto;
+        }
+
+        .serial-btn:hover {
+            background: #444;
+            border-color: #777;
+            color: #fff;
+        }
+
+        .serial-btn.connected {
+            background: #1a3a1a;
+            border-color: #28a745;
+            color: #5cff5c;
+        }
+
+        .serial-btn.connected:hover {
+            background: #2a4a2a;
+        }
+
+        .record-btn {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #333;
+            color: #ccc;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+
+        .record-btn:hover {
+            background: #444;
+            border-color: #777;
+            color: #fff;
+        }
+
+        .record-btn.recording {
+            background: #3a1a1a;
+            border-color: #dc3545;
+            color: #ff5c5c;
+            animation: rec-pulse 1s ease-in-out infinite;
+        }
+
+        .calib-btn {
+            font-size: 13px;
+            padding: 6px 14px;
+            border-radius: 4px;
+            border: 1px solid #555;
+            background: #333;
+            color: #ccc;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+            margin-left: 8px;
+        }
+        .calib-btn:hover {
+            background: #444;
+            border-color: #777;
+            color: #fff;
+        }
+        .calib-btn.calibrating {
+            background: #1a2a3a;
+            border-color: #17a2b8;
+            color: #5cdcff;
+            animation: rec-pulse 1s ease-in-out infinite;
+        }
+        .calib-btn.calibrated {
+            background: #1a3a2a;
+            border-color: #28a745;
+            color: #5cff8c;
+        }
+
+        @keyframes rec-pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.6; }
         }
 
         .main-layout {
@@ -69,18 +164,18 @@
         }
 
         h2 {
-            color: #555;
+            color: #ffffff;
             margin-bottom: 15px;
             font-size: 18px;
-            border-bottom: 2px solid #5521DA;
+            border-bottom: 2px solid #7742ff;
             padding-bottom: 8px;
         }
 
         .section {
-            background: #f9f9f9;
+            background: #1a1a1a;
             padding: 15px;
             border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #333333;
         }
 
         .calib-grid {
@@ -97,7 +192,7 @@
 
         .input-group label {
             margin-bottom: 5px;
-            color: #666;
+            color: #e0e0e0;
             font-size: 14px;
             font-weight: 500;
         }
@@ -106,17 +201,56 @@
         .input-group input[type="number"],
         .input-group select {
             padding: 8px 12px;
-            border: 1px solid #ddd;
+            border: 1px solid #333333;
             border-radius: 4px;
             font-size: 14px;
+            background: #0a0a0a;
+            color: #ffffff;
             transition: border-color 0.2s;
+        }
+
+        .input-group input[type="range"] {
+            height: 6px;
+            background: #333333;
+            border-radius: 3px;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .input-group input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #7742ff;
+            border-radius: 50%;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .input-group input[type="range"]::-webkit-slider-thumb:hover {
+            background: #5d2fd4;
+        }
+
+        .input-group input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #7742ff;
+            border-radius: 50%;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
+        }
+
+        .input-group input[type="range"]::-moz-range-thumb:hover {
+            background: #5d2fd4;
         }
 
         .input-group input[type="text"]:focus,
         .input-group input[type="number"]:focus,
         .input-group select:focus {
             outline: none;
-            border-color: #5521DA;
+            border-color: #7742ff;
         }
 
         .config-section {
@@ -135,7 +269,7 @@
         .color-picker-group input[type="color"] {
             width: 100%;
             height: 40px;
-            border: 1px solid #ddd;
+            border: 1px solid #333333;
             border-radius: 4px;
             cursor: pointer;
         }
@@ -148,14 +282,14 @@
             height: 50px;
             border-radius: 4px;
             margin-top: 10px;
-            border: 1px solid #ddd;
+            border: 1px solid #333333;
         }
 
         .control-panel {
             padding: 15px;
-            background: #f9f9f9;
+            background: #1a1a1a;
             border-radius: 8px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #333333;
         }
 
         .control-panel:first-child {
@@ -171,14 +305,14 @@
         .gesture-counter {
             font-size: 18px;
             font-weight: bold;
-            color: #333;
+            color: #ffffff;
             min-width: 60px;
             text-align: center;
         }
 
         .nav-button {
             padding: 8px 16px;
-            background: #5521DA;
+            background: #7742ff;
             color: white;
             border: none;
             border-radius: 4px;
@@ -189,7 +323,7 @@
         }
 
         .nav-button:hover {
-            background: #4419b8;
+            background: #5d2fd4;
             transform: translateY(-1px);
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
@@ -239,7 +373,7 @@
 
         .btn-clear {
             background: #ffc107;
-            color: #333;
+            color: #000000;
             border-color: #ffc107;
         }
 
@@ -278,13 +412,13 @@
 
         .gesture-canvas-container {
             flex: 1;
-            border: 2px solid #ddd;
+            border: 2px solid #333333;
             border-radius: 8px;
             overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #fff;
+            background: #0a0a0a;
         }
 
         canvas {
@@ -303,7 +437,7 @@
 
         button {
             padding: 10px 16px;
-            background: #5521DA;
+            background: #7742ff;
             color: white;
             border: none;
             border-radius: 4px;
@@ -314,7 +448,7 @@
         }
 
         button:hover {
-            background: #4419b8;
+            background: #5d2fd4;
         }
 
         button.secondary {
@@ -348,9 +482,9 @@
         .midi-event {
             padding: 10px;
             margin-bottom: 10px;
-            background: #f9f9f9;
+            background: #1a1a1a;
             border-radius: 4px;
-            border: 1px solid #e0e0e0;
+            border: 1px solid #333333;
         }
 
         .midi-event-controls {
@@ -379,16 +513,18 @@
         .midi-event input {
             width: 100%;
             padding: 6px 8px;
-            border: 1px solid #ddd;
+            border: 1px solid #333333;
             border-radius: 4px;
             font-size: 13px;
+            background: #0a0a0a;
+            color: #ffffff;
             box-sizing: border-box;
         }
 
         .midi-event input[type="range"] {
             padding: 0;
             height: 6px;
-            background: #ddd;
+            background: #333333;
             border-radius: 3px;
             outline: none;
             -webkit-appearance: none;
@@ -400,7 +536,7 @@
             appearance: none;
             width: 16px;
             height: 16px;
-            background: #5521DA;
+            background: #7742ff;
             border-radius: 50%;
             cursor: pointer;
         }
@@ -408,7 +544,7 @@
         .midi-event input[type="range"]::-moz-range-thumb {
             width: 16px;
             height: 16px;
-            background: #5521DA;
+            background: #7742ff;
             border-radius: 50%;
             cursor: pointer;
             border: none;
@@ -416,7 +552,7 @@
 
         .midi-event label {
             font-size: 12px;
-            color: #666;
+            color: #e0e0e0;
             margin-bottom: 3px;
             display: block;
         }
@@ -470,21 +606,21 @@
         .play-mode-gesture-item {
             margin-bottom: 15px;
             padding: 12px;
-            background: #f9f9f9;
+            background: #1a1a1a;
             border-radius: 4px;
-            border-left: 4px solid #5521DA;
+            border-left: 4px solid #7742ff;
         }
 
         .play-mode-gesture-title {
             font-weight: bold;
             font-size: 16px;
             margin-bottom: 8px;
-            color: #333;
+            color: #ffffff;
         }
 
         .play-mode-midi-event {
             margin-left: 10px;
-            color: #666;
+            color: #e0e0e0;
             font-size: 13px;
         }
 
@@ -513,7 +649,7 @@
 </head>
 <body>
     <div class="container">
-        <h1>YAML Configuration Editor</h1>
+        <h1>Quray Configuration Editor <button class="calib-btn" id="calibBtn" onclick="startCalibration()" style="display:none">🎯 Calibrate</button><button class="record-btn" id="recordBtn" onclick="toggleRecording()" style="display:none">⏺ Record</button><button class="serial-btn" id="serialBtn" onclick="toggleSerial()">⚡ Connect Serial</button></h1>
 
         <div class="main-layout">
             <!-- Left Panel (20%) -->
@@ -540,13 +676,61 @@
                         <div class="gradient-preview" id="gradientPreview"></div>
                         
                         <div style="display: flex; gap: 10px; margin-top: 10px;">
-                            <input type="color" id="color1Picker" style="flex: 1; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
-                            <input type="color" id="color2Picker" style="flex: 1; height: 40px; border: 1px solid #ddd; border-radius: 4px; cursor: pointer;">
+                            <input type="color" id="color1Picker" style="flex: 1; height: 40px; border: 1px solid #333333; border-radius: 4px; cursor: pointer;">
+                            <input type="color" id="color2Picker" style="flex: 1; height: 40px; border: 1px solid #333333; border-radius: 4px; cursor: pointer;">
                         </div>
                         
                         <div style="margin-top: 5px;">
-                            <input type="text" id="color1" placeholder="#FE3A86" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; margin-bottom: 5px;">
-                            <input type="text" id="color2" placeholder="#5521DA" style="width: 100%; padding: 8px 12px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px;">
+                            <input type="text" id="color1" placeholder="#FE3A86" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; margin-bottom: 5px; background: #0a0a0a; color: #ffffff;">
+                            <input type="text" id="color2" placeholder="#7742ff" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">WiFi Client</h3>
+                        <div class="input-group">
+                            <label for="wifiSsid">WiFi SSID</label>
+                            <input type="text" id="wifiSsid" placeholder="Network name" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="wifiPassword">WiFi Password</label>
+                            <input type="password" id="wifiPassword" placeholder="Password" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">WiFi Access Point</h3>
+                        <div class="input-group">
+                            <label for="wifiApSsid">AP SSID</label>
+                            <input type="text" id="wifiApSsid" placeholder="AP name" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="wifiApPassword">AP Password</label>
+                            <input type="password" id="wifiApPassword" placeholder="AP password" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                    </div>
+
+                    <div style="margin-top: 20px;">
+                        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">Distance Averaging Speed</h3>
+                        <div class="input-group">
+                            <label for="distanceMinAvgSpeed">Min Avg Speed (0-10)</label>
+                            <input type="number" id="distanceMinAvgSpeed" min="0" max="10" placeholder="2" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="distanceMaxAvgSpeed">Max Avg Speed (0-10)</label>
+                            <input type="number" id="distanceMaxAvgSpeed" min="0" max="10" placeholder="8" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="distanceAvgResetThreshold">Reset Threshold (mm)</label>
+                            <input type="number" id="distanceAvgResetThreshold" min="0" placeholder="100" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="xAvgSpeed">X Avg Speed (0-100)</label>
+                            <input type="number" id="xAvgSpeed" min="0" max="100" placeholder="50" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                        </div>
+                        <div class="input-group" style="margin-top: 10px;">
+                            <label for="validStreakThreshold">Valid Streak Threshold</label>
+                            <input type="number" id="validStreakThreshold" min="0" placeholder="5" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
                         </div>
                     </div>
                 </div>
@@ -598,7 +782,7 @@
                                 <button class="nav-button btn-delete" onclick="deleteGesture()" title="Delete current gesture">✕</button>
                             </div>
                             <div class="gesture-navigation" id="gestureCreateContainer" style="display: none;">
-                                <div style="color: #666; font-size: 13px;">Draw rectangle on canvas</div>
+                                <div style="color: #e0e0e0; font-size: 13px;">Draw rectangle on canvas</div>
                                 <button class="nav-button btn-delete" onclick="cancelCreateGesture()" title="Cancel">✕</button>
                             </div>
                         </div>
@@ -611,7 +795,7 @@
                 </div>
             </div>
 
-            <!-- Right Panel (20%) - MIDI Events -->
+            <!-- Right Panel (20%) - MIDI Events and CV Events -->
             <div class="right-panel">
                 <div class="section">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
@@ -619,6 +803,41 @@
                         <button class="nav-button btn-create" onclick="addMidiEvent()" title="Add MIDI event">+</button>
                     </div>
                     <div id="midiEventsList"></div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h2 style="margin: 0;">CV Events</h2>
+                        <button class="nav-button btn-create" onclick="addCvEvent()" title="Add CV event">+</button>
+                    </div>
+                    <div id="cvEventsList"></div>
+                </div>
+                <div class="section" style="margin-top: 20px;">
+                    <h2 style="margin: 0 0 15px 0;">MIDI Control</h2>
+                    <div class="calib-grid">
+                        <div class="input-group">
+                            <label>Control Change (CC)</label>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                <input type="number" id="midiCcChannel" min="0" max="15" value="0" placeholder="Ch" style="width: 60px;">
+                                <input type="number" id="midiCcNumber" min="0" max="127" value="1" placeholder="CC" style="width: 60px;">
+                                <span style="color: #999; font-size: 12px;">Value:</span>
+                                <input type="range" id="midiCcValue" min="0" max="127" value="64" style="flex: 1;">
+                                <span id="midiCcValueDisplay" style="min-width: 35px; text-align: right; color: #fff;">64</span>
+                            </div>
+                            <button class="nav-button" onclick="sendMidiCC()" style="width: 100%;">Send CC</button>
+                        </div>
+                        <div class="input-group" style="margin-top: 15px;">
+                            <label>Note On/Off</label>
+                            <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+                                <input type="number" id="midiNoteChannel" min="0" max="15" value="0" placeholder="Ch" style="width: 60px;">
+                                <input type="number" id="midiNoteNumber" min="0" max="127" value="60" placeholder="Note" style="width: 60px;">
+                                <input type="number" id="midiNoteVelocity" min="0" max="127" value="100" placeholder="Vel" style="width: 60px;">
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button class="nav-button" onclick="sendMidiNote(true)" style="flex: 1; background: #28a745;">Note On</button>
+                                <button class="nav-button" onclick="sendMidiNote(false)" style="flex: 1; background: #dc3545;">Note Off</button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -635,7 +854,22 @@
 
     <script>
         // Global state
-        let calibData = [];
+        let calibData = {
+            min_signal: [],
+            max_distance: [],
+            manual_max_distance: 1200  // default max distance limit
+        };
+        let sensorData = {
+            signal_level: Array(7).fill(0),
+            distance: Array(7).fill(0)
+        };
+
+        // WebSerial state
+        let serialPort = null;
+        let serialReader = null;
+        let serialConnected = false;
+        let serialRequestId = 0;
+        let pendingSerialRequests = new Map();
         let configData = {};
         let presetsData = {};
         let presetNames = [];
@@ -664,6 +898,7 @@
         let activePlayGestures = [];
         let playModeMouseX = 0;
         let playModeMouseY = 0;
+        let playModeSignalPoints = [];
         
         // Audio synthesis state
         let audioContext = null;
@@ -674,46 +909,162 @@
         let dryGain = null; // Dry signal gain
         let wetGain = null; // Wet (reverb) signal gain
 
+        // Dirty flags for YAML files
+        let dirtyFlags = {
+            calib: false,
+            config: false,
+            presets: {} // Will store flags for each preset: { 'presetName': true/false }
+        };
+
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', async () => {
             await loadAllFiles();
             setupEventListeners();
+            startDirtyCheckTimer();
+            startSensorDataPolling();
         });
 
-        // Normalize preset data - ensure CC events have bottom/top
+        // Normalize preset data - ensure CC events have bottom/top/singleValue, ensure CV array exists
         function normalizePresetData(preset) {
             if (!preset || !preset.gestures) return;
             
             preset.gestures.forEach(gesture => {
+                // Normalize MIDI events
                 if (gesture.midi && Array.isArray(gesture.midi)) {
                     gesture.midi.forEach(event => {
                         if (event.cc !== undefined) {
                             if (event.bottom === undefined) event.bottom = 0;
                             if (event.top === undefined) event.top = 127;
+                            if (event.singleValue === undefined) event.singleValue = false;
                         }
                     });
                 }
+                
+                // Ensure CV array exists and normalize CV events
+                if (!gesture.cv || !Array.isArray(gesture.cv)) {
+                    gesture.cv = [];
+                }
+                gesture.cv.forEach(event => {
+                    if (event.bottom === undefined) event.bottom = -5.0;
+                    if (event.top === undefined) event.top = 5.0;
+                    if (event.singleValue === undefined) event.singleValue = false;
+                });
             });
+        }
+
+        // Mark file as dirty
+        function markDirty(fileType, presetName = null) {
+            if (fileType === 'calib') {
+                dirtyFlags.calib = true;
+            } else if (fileType === 'config') {
+                dirtyFlags.config = true;
+            } else if (fileType === 'preset' && presetName) {
+                dirtyFlags.presets[presetName] = true;
+            }
+        }
+
+        // Start dirty check timer (1000 ms) - recursive setTimeout
+        function startDirtyCheckTimer() {
+            setTimeout(async () => {
+                const filesToUpdate = [];
+                
+                if (dirtyFlags.calib) {
+                    filesToUpdate.push({ type: 'calib', data: calibData });
+                    dirtyFlags.calib = false;
+                }
+                
+                if (dirtyFlags.config) {
+                    filesToUpdate.push({ type: 'config', data: configData });
+                    dirtyFlags.config = false;
+                }
+                
+                for (const [presetName, isDirty] of Object.entries(dirtyFlags.presets)) {
+                    if (isDirty) {
+                        filesToUpdate.push({ type: 'preset', name: presetName, data: presetsData[presetName] });
+                        dirtyFlags.presets[presetName] = false;
+                    }
+                }
+                
+                // Send POST requests for each changed file and wait for all to complete
+                const fetchPromises = filesToUpdate.map(file => {
+                    let url, content;
+                    if (file.type === 'calib') {
+                        url = '/calib.yml';
+                        content = jsyaml.dump(file.data, { lineWidth: -1 });
+                    } else if (file.type === 'config') {
+                        url = '/config.yml';
+                        content = jsyaml.dump(file.data, { lineWidth: -1 });
+                    } else if (file.type === 'preset') {
+                        url = `/presets/${file.name}.yml`;
+                        content = jsyaml.dump(file.data, { lineWidth: -1 });
+                    }
+                    
+                    return apiFetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'text/yaml'
+                        },
+                        body: content
+                    }).then(response => {
+                        if (response.ok) {
+                            console.log(`Updated ${url}`);
+                        } else {
+                            console.error(`Failed to update ${url}: ${response.status}`);
+                        }
+                    }).catch(error => {
+                        console.error(`Error updating ${url}:`, error);
+                    });
+                });
+                
+                // Wait for all fetch requests to complete before scheduling next check
+                await Promise.all(fetchPromises);
+                
+                // Schedule next check
+                startDirtyCheckTimer();
+            }, 1000);
         }
 
         // Load all YAML files
         async function loadAllFiles() {
             try {
                 // Load calib.yml
-                const calibResponse = await fetch('calib.yml');
+                const calibResponse = await apiFetch('/calib.yml');
                 const calibText = await calibResponse.text();
-                calibData = jsyaml.load(calibText) || [];
+                const loadedCalib = jsyaml.load(calibText) || {};
+                // Handle both new format (object) and legacy format (array)
+                if (Array.isArray(loadedCalib)) {
+                    // Legacy format: just array of min_signal values
+                    calibData = {
+                        min_signal: loadedCalib,
+                        max_distance: Array(7).fill(1000) // Default values
+                    };
+                } else {
+                    // New format: object with min_signal and max_distance
+                    calibData = {
+                        min_signal: loadedCalib.min_signal || Array(7).fill(0),
+                        max_distance: loadedCalib.max_distance || Array(7).fill(1000),
+                        manual_max_distance: loadedCalib.manual_max_distance || 1200
+                    };
+                }
+                // Ensure arrays have 7 elements
+                while (calibData.min_signal.length < 7) {
+                    calibData.min_signal.push(0);
+                }
+                while (calibData.max_distance.length < 7) {
+                    calibData.max_distance.push(1000);
+                }
                 renderCalibration();
 
                 // Load config.yml
-                const configResponse = await fetch('config.yml');
+                const configResponse = await apiFetch('/config.yml');
                 const configText = await configResponse.text();
                 configData = jsyaml.load(configText) || {};
                 
-                // Load preset files
-                const presetFiles = ['default.yml', 'test.yml'];
+                // Load preset files list from /presets endpoint
+                const presetsListResponse = await apiFetch('/presets');
+                const presetFiles = await presetsListResponse.json();
                 for (const file of presetFiles) {
-                    const response = await fetch(`presets/${file}`);
+                    const response = await apiFetch(`/presets/${file}`);
                     const text = await response.text();
                     const name = file.replace('.yml', '');
                     presetsData[name] = jsyaml.load(text) || { gestures: [] };
@@ -733,6 +1084,7 @@
                     updateGestureCounter();
                     drawGestures('default');
                     renderMidiEvents();
+                    renderCvEvents();
                 }
                 
                 // Initialize history buttons
@@ -750,21 +1102,542 @@
             const grid = document.getElementById('calibGrid');
             grid.innerHTML = '';
             
-            // Ensure we have 7 values
-            while (calibData.length < 7) {
-                calibData.push(0);
+            // Manual max distance slider
+            const manualMaxDistContainer = document.createElement('div');
+            manualMaxDistContainer.style.marginBottom = '20px';
+            manualMaxDistContainer.style.padding = '10px';
+            manualMaxDistContainer.style.border = '1px solid #333333';
+            manualMaxDistContainer.style.borderRadius = '4px';
+            manualMaxDistContainer.style.backgroundColor = '#0a0a0a';
+            
+            const manualMaxDistLabel = document.createElement('label');
+            manualMaxDistLabel.textContent = 'Manual Max Distance: ';
+            manualMaxDistLabel.style.color = '#e0e0e0';
+            manualMaxDistLabel.style.fontSize = '12px';
+            manualMaxDistLabel.style.marginRight = '10px';
+            
+            const manualMaxDistValue = document.createElement('span');
+            manualMaxDistValue.id = 'manualMaxDistValue';
+            manualMaxDistValue.textContent = calibData.manual_max_distance || 1200;
+            manualMaxDistValue.style.color = '#ffffff';
+            manualMaxDistValue.style.fontSize = '12px';
+            manualMaxDistValue.style.fontWeight = 'bold';
+            manualMaxDistValue.style.marginRight = '10px';
+            manualMaxDistValue.style.minWidth = '50px';
+            manualMaxDistValue.style.display = 'inline-block';
+            
+            const manualMaxDistSlider = document.createElement('input');
+            manualMaxDistSlider.type = 'range';
+            manualMaxDistSlider.id = 'manualMaxDistSlider';
+            manualMaxDistSlider.min = '100';
+            manualMaxDistSlider.max = '1200';
+            manualMaxDistSlider.value = calibData.manual_max_distance || 1200;
+            manualMaxDistSlider.style.width = '200px';
+            manualMaxDistSlider.style.marginRight = '10px';
+            manualMaxDistSlider.addEventListener('input', () => {
+                calibData.manual_max_distance = parseInt(manualMaxDistSlider.value);
+                manualMaxDistValue.textContent = calibData.manual_max_distance;
+                markDirty('calib');
+            });
+            
+            manualMaxDistContainer.appendChild(manualMaxDistLabel);
+            manualMaxDistContainer.appendChild(manualMaxDistValue);
+            manualMaxDistContainer.appendChild(manualMaxDistSlider);
+            grid.appendChild(manualMaxDistContainer);
+            
+            // Create four-column layout
+            const container = document.createElement('div');
+            container.style.display = 'grid';
+            container.style.gridTemplateColumns = '1fr 1fr 1fr 1fr';
+            container.style.gap = '10px';
+            container.style.width = '100%';
+            container.style.boxSizing = 'border-box';
+            
+            // Min Signal column
+            const minSignalCol = document.createElement('div');
+            minSignalCol.style.display = 'flex';
+            minSignalCol.style.flexDirection = 'column';
+            minSignalCol.style.gap = '10px';
+            minSignalCol.style.width = '100%';
+            minSignalCol.style.boxSizing = 'border-box';
+            
+            const minSignalLabel = document.createElement('h3');
+            minSignalLabel.textContent = 'Min Signal';
+            minSignalLabel.style.fontSize = '12px';
+            minSignalLabel.style.color = '#e0e0e0';
+            minSignalLabel.style.marginBottom = '5px';
+            minSignalLabel.style.marginTop = '0';
+            minSignalLabel.style.fontWeight = '500';
+            minSignalCol.appendChild(minSignalLabel);
+            
+            // Current Signal column
+            const currentSignalCol = document.createElement('div');
+            currentSignalCol.style.display = 'flex';
+            currentSignalCol.style.flexDirection = 'column';
+            currentSignalCol.style.gap = '10px';
+            currentSignalCol.style.width = '100%';
+            currentSignalCol.style.boxSizing = 'border-box';
+            
+            const currentSignalLabel = document.createElement('h3');
+            currentSignalLabel.textContent = 'Current Signal';
+            currentSignalLabel.style.fontSize = '12px';
+            currentSignalLabel.style.color = '#e0e0e0';
+            currentSignalLabel.style.marginBottom = '5px';
+            currentSignalLabel.style.marginTop = '0';
+            currentSignalLabel.style.fontWeight = '500';
+            currentSignalCol.appendChild(currentSignalLabel);
+            
+            // Max Distance column
+            const maxDistanceCol = document.createElement('div');
+            maxDistanceCol.style.display = 'flex';
+            maxDistanceCol.style.flexDirection = 'column';
+            maxDistanceCol.style.gap = '10px';
+            maxDistanceCol.style.width = '100%';
+            maxDistanceCol.style.boxSizing = 'border-box';
+            
+            const maxDistanceLabel = document.createElement('h3');
+            maxDistanceLabel.textContent = 'Max Distance';
+            maxDistanceLabel.style.fontSize = '12px';
+            maxDistanceLabel.style.color = '#e0e0e0';
+            maxDistanceLabel.style.marginBottom = '5px';
+            maxDistanceLabel.style.marginTop = '0';
+            maxDistanceLabel.style.fontWeight = '500';
+            maxDistanceCol.appendChild(maxDistanceLabel);
+            
+            // Current Distance column
+            const currentDistanceCol = document.createElement('div');
+            currentDistanceCol.style.display = 'flex';
+            currentDistanceCol.style.flexDirection = 'column';
+            currentDistanceCol.style.gap = '10px';
+            currentDistanceCol.style.width = '100%';
+            currentDistanceCol.style.boxSizing = 'border-box';
+            
+            const currentDistanceLabel = document.createElement('h3');
+            currentDistanceLabel.textContent = 'Current Distance';
+            currentDistanceLabel.style.fontSize = '12px';
+            currentDistanceLabel.style.color = '#e0e0e0';
+            currentDistanceLabel.style.marginBottom = '5px';
+            currentDistanceLabel.style.marginTop = '0';
+            currentDistanceLabel.style.fontWeight = '500';
+            currentDistanceCol.appendChild(currentDistanceLabel);
+            
+            for (let i = 0; i < 7; i++) {
+                // Min Signal input
+                const minSignalInput = document.createElement('input');
+                minSignalInput.type = 'number';
+                minSignalInput.id = `calibMinSignal${i}`;
+                minSignalInput.value = calibData.min_signal[i] || 0;
+                minSignalInput.style.padding = '6px 8px';
+                minSignalInput.style.border = '1px solid #333333';
+                minSignalInput.style.borderRadius = '4px';
+                minSignalInput.style.fontSize = '12px';
+                minSignalInput.style.background = '#0a0a0a';
+                minSignalInput.style.color = '#ffffff';
+                minSignalInput.style.width = '100%';
+                minSignalInput.style.boxSizing = 'border-box';
+                minSignalInput.addEventListener('input', () => {
+                    calibData.min_signal[i] = parseInt(minSignalInput.value) || 0;
+                    markDirty('calib');
+                });
+                minSignalCol.appendChild(minSignalInput);
+                
+                // Current Signal display
+                const currentSignalDisplay = document.createElement('div');
+                currentSignalDisplay.id = `currentSignal${i}`;
+                currentSignalDisplay.textContent = sensorData.signal_level[i] || 0;
+                currentSignalDisplay.style.padding = '6px 8px';
+                currentSignalDisplay.style.border = '1px solid #333333';
+                currentSignalDisplay.style.borderRadius = '4px';
+                currentSignalDisplay.style.fontSize = '12px';
+                currentSignalDisplay.style.backgroundColor = '#1a1a1a';
+                currentSignalDisplay.style.color = '#ffffff';
+                currentSignalDisplay.style.textAlign = 'center';
+                currentSignalDisplay.style.width = '100%';
+                currentSignalDisplay.style.boxSizing = 'border-box';
+                currentSignalCol.appendChild(currentSignalDisplay);
+                
+                // Max Distance input
+                const maxDistanceInput = document.createElement('input');
+                maxDistanceInput.type = 'number';
+                maxDistanceInput.id = `calibMaxDistance${i}`;
+                maxDistanceInput.value = calibData.max_distance[i] || 1000;
+                maxDistanceInput.style.padding = '6px 8px';
+                maxDistanceInput.style.border = '1px solid #333333';
+                maxDistanceInput.style.borderRadius = '4px';
+                maxDistanceInput.style.fontSize = '12px';
+                maxDistanceInput.style.background = '#0a0a0a';
+                maxDistanceInput.style.color = '#ffffff';
+                maxDistanceInput.style.width = '100%';
+                maxDistanceInput.style.boxSizing = 'border-box';
+                maxDistanceInput.addEventListener('input', () => {
+                    calibData.max_distance[i] = parseInt(maxDistanceInput.value) || 1000;
+                    markDirty('calib');
+                });
+                maxDistanceCol.appendChild(maxDistanceInput);
+                
+                // Current Distance display
+                const currentDistanceDisplay = document.createElement('div');
+                currentDistanceDisplay.id = `currentDistance${i}`;
+                currentDistanceDisplay.textContent = sensorData.distance[i] || 0;
+                currentDistanceDisplay.style.padding = '6px 8px';
+                currentDistanceDisplay.style.border = '1px solid #333333';
+                currentDistanceDisplay.style.borderRadius = '4px';
+                currentDistanceDisplay.style.fontSize = '12px';
+                currentDistanceDisplay.style.backgroundColor = '#1a1a1a';
+                currentDistanceDisplay.style.color = '#ffffff';
+                currentDistanceDisplay.style.textAlign = 'center';
+                currentDistanceDisplay.style.width = '100%';
+                currentDistanceDisplay.style.boxSizing = 'border-box';
+                currentDistanceCol.appendChild(currentDistanceDisplay);
+            }
+            
+            container.appendChild(minSignalCol);
+            container.appendChild(currentSignalCol);
+            container.appendChild(maxDistanceCol);
+            container.appendChild(currentDistanceCol);
+            grid.appendChild(container);
+        }
+        
+        // Update sensor data displays in the calibration panel
+        function updateSensorDisplays() {
+            for (let i = 0; i < 7; i++) {
+                const signalDisplay = document.getElementById(`currentSignal${i}`);
+                const distanceDisplay = document.getElementById(`currentDistance${i}`);
+                if (signalDisplay) {
+                    signalDisplay.textContent = sensorData.signal_level[i] || 0;
+                }
+                if (distanceDisplay) {
+                    distanceDisplay.textContent = sensorData.distance[i] || 0;
+                }
+            }
+        }
+
+        // Chunked serial write: data queued, one chunk sent per firmware broadcast.
+        const SERIAL_CHUNK_SIZE = 100;
+        let serialOutBuf = new Uint8Array(0);
+
+        function serialWrite(str) {
+            const encoded = new TextEncoder().encode(str);
+            const newBuf = new Uint8Array(serialOutBuf.length + encoded.length);
+            newBuf.set(serialOutBuf);
+            newBuf.set(encoded, serialOutBuf.length);
+            serialOutBuf = newBuf;
+            return Promise.resolve();
+        }
+
+        // Called exactly once per received broadcast line
+        function sendNextChunk() {
+            if (serialOutBuf.length === 0 || !serialPort?.writable) return;
+            const chunk = serialOutBuf.slice(0, SERIAL_CHUNK_SIZE);
+            serialOutBuf = serialOutBuf.slice(SERIAL_CHUNK_SIZE);
+            const writer = serialPort.writable.getWriter();
+            writer.write(chunk).then(() => writer.releaseLock())
+                               .catch(e => writer.releaseLock());
+        }
+
+        // Fetch wrapper: routes through WebSerial when connected, otherwise HTTP
+        function apiFetch(url, options = {}) {
+            // Normalize relative URL to absolute
+            let normalizedUrl = url;
+            if (!normalizedUrl.startsWith('/')) {
+                normalizedUrl = '/' + normalizedUrl;
             }
 
-            for (let i = 0; i < 7; i++) {
-                const input = document.createElement('input');
-                input.type = 'number';
-                input.id = `calib${i}`;
-                input.value = calibData[i] || 0;
-                input.style.padding = '8px 12px';
-                input.style.border = '1px solid #ddd';
-                input.style.borderRadius = '4px';
-                input.style.fontSize = '14px';
-                grid.appendChild(input);
+            if (serialConnected) {
+                return new Promise((resolve, reject) => {
+                    const id = ++serialRequestId;
+                    const method = (options.method || 'GET').toUpperCase();
+
+                    let req = { m: method, id: id, u: normalizedUrl };
+
+                    if (options.body && method === 'POST') {
+                        // Body comes as YAML text from the page — parse to object for JSON transport
+                        try {
+                            req.b = jsyaml.load(options.body);
+                        } catch (e) {
+                            try { req.b = JSON.parse(options.body); } catch (e2) { req.b = options.body; }
+                        }
+                    }
+
+                    const reqStr = JSON.stringify(req);
+                    pendingSerialRequests.set(id, resolve);
+                    serialWrite(reqStr + '\n');
+
+                    // Timeout: account for chunked TX + firmware processing
+                    const txTimeMs = Math.ceil(reqStr.length / SERIAL_CHUNK_SIZE) * 60;
+                    const timeoutMs = txTimeMs + (method === 'POST' ? 3000 : 2000);
+                    setTimeout(() => {
+                        if (pendingSerialRequests.has(id)) {
+                            pendingSerialRequests.delete(id);
+                            reject(new Error('Serial request timeout for ' + normalizedUrl));
+                        }
+                    }, timeoutMs);
+                });
+            }
+
+            return fetch(url, options);
+        }
+
+        // Send MIDI CC message
+        async function sendMidiCC() {
+            const channel = parseInt(document.getElementById('midiCcChannel').value) || 0;
+            const cc = parseInt(document.getElementById('midiCcNumber').value) || 0;
+            const value = parseInt(document.getElementById('midiCcValue').value) || 0;
+            
+            if (channel < 0 || channel > 15) {
+                alert('Channel must be between 0 and 15');
+                return;
+            }
+            if (cc < 0 || cc > 127) {
+                alert('CC number must be between 0 and 127');
+                return;
+            }
+            if (value < 0 || value > 127) {
+                alert('Value must be between 0 and 127');
+                return;
+            }
+            
+            const body = JSON.stringify({
+                type: 'cc',
+                channel: channel,
+                cc: cc,
+                value: value
+            });
+            
+            try {
+                const response = await apiFetch('/midi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body
+                });
+                
+                if (response && response.ok) {
+                    console.log('MIDI CC sent:', { channel, cc, value });
+                } else {
+                    const text = response ? await response.text() : 'Unknown error';
+                    alert('Failed to send MIDI CC: ' + text);
+                }
+            } catch (error) {
+                console.error('Error sending MIDI CC:', error);
+                alert('Error sending MIDI CC: ' + error.message);
+            }
+        }
+
+        // Send MIDI Note On/Off message
+        async function sendMidiNote(isOn) {
+            const channel = parseInt(document.getElementById('midiNoteChannel').value) || 0;
+            const note = parseInt(document.getElementById('midiNoteNumber').value) || 60;
+            const velocity = parseInt(document.getElementById('midiNoteVelocity').value) || 100;
+            
+            if (channel < 0 || channel > 15) {
+                alert('Channel must be between 0 and 15');
+                return;
+            }
+            if (note < 0 || note > 127) {
+                alert('Note number must be between 0 and 127');
+                return;
+            }
+            if (velocity < 0 || velocity > 127) {
+                alert('Velocity must be between 0 and 127');
+                return;
+            }
+            
+            const body = JSON.stringify({
+                type: 'note',
+                channel: channel,
+                note: note,
+                velocity: velocity,
+                on: isOn
+            });
+            
+            try {
+                const response = await apiFetch('/midi', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: body
+                });
+                
+                if (response && response.ok) {
+                    console.log('MIDI Note ' + (isOn ? 'On' : 'Off') + ' sent:', { channel, note, velocity });
+                } else {
+                    const text = response ? await response.text() : 'Unknown error';
+                    alert('Failed to send MIDI Note: ' + text);
+                }
+            } catch (error) {
+                console.error('Error sending MIDI Note:', error);
+                alert('Error sending MIDI Note: ' + error.message);
+            }
+        }
+
+        // Start polling sensor data (HTTP fallback when serial not connected)
+        function startSensorDataPolling() {
+            async function pollSensorData() {
+                // Skip HTTP polling when WebSerial is connected
+                if (!serialConnected) {
+                    try {
+                        const response = await fetch('/sensor_data');
+                        if (response.ok) {
+                            const data = await response.json();
+                            if (data.signal_level && data.distance) {
+                                sensorData.signal_level = data.signal_level;
+                                sensorData.distance = data.distance;
+                                updateSensorDisplays();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Error fetching sensor data:', error);
+                    }
+                }
+                
+                // Schedule next poll (100ms interval)
+                setTimeout(pollSensorData, 100);
+            }
+            
+            pollSensorData();
+        }
+
+        // WebSerial: connect/disconnect toggle
+        async function toggleSerial() {
+            if (serialConnected) {
+                await disconnectSerial();
+            } else {
+                await connectSerial();
+            }
+        }
+
+        async function connectSerial() {
+            if (!('serial' in navigator)) {
+                alert('WebSerial is not supported in this browser. Use Chrome or Edge.');
+                return;
+            }
+
+            try {
+                serialPort = await navigator.serial.requestPort();
+                await serialPort.open({ baudRate: 921600 });
+
+                serialConnected = true;
+                const btn = document.getElementById('serialBtn');
+                btn.textContent = '⚡ Disconnect';
+                btn.classList.add('connected');
+                document.getElementById('recordBtn').style.display = '';
+                document.getElementById('calibBtn').style.display = '';
+
+                // Start reading
+                readSerialLoop();
+
+                // Reload all data over serial
+                loadAllFiles();
+            } catch (err) {
+                console.error('Serial connect error:', err);
+                serialConnected = false;
+            }
+        }
+
+        async function disconnectSerial() {
+            serialConnected = false;
+
+            try {
+                if (serialReader) {
+                    await serialReader.cancel();
+                    serialReader = null;
+                }
+                if (serialPort) {
+                    await serialPort.close();
+                    serialPort = null;
+                }
+            } catch (err) {
+                console.error('Serial disconnect error:', err);
+            }
+
+            const btn = document.getElementById('serialBtn');
+            btn.textContent = '⚡ Connect Serial';
+            btn.classList.remove('connected');
+
+            // Stop recording if active
+            if (recording) toggleRecording();
+            document.getElementById('recordBtn').style.display = 'none';
+            document.getElementById('calibBtn').style.display = 'none';
+        }
+
+        async function readSerialLoop() {
+            const decoder = new TextDecoderStream();
+            const inputDone = serialPort.readable.pipeTo(decoder.writable);
+            const inputStream = decoder.readable;
+            serialReader = inputStream.getReader();
+
+            let lineBuf = '';
+            try {
+                while (serialConnected) {
+                    const { value, done } = await serialReader.read();
+                    if (done) break;
+                    if (!value) continue;
+
+                    lineBuf += value;
+                    let lines = lineBuf.split('\n');
+                    // Keep the last incomplete chunk in the buffer
+                    lineBuf = lines.pop();
+
+                    for (const line of lines) {
+                        const trimmed = line.trim();
+                        if (!trimmed) continue;
+                        try {
+                            const data = JSON.parse(trimmed);
+                            if (data.d && data.s) {
+                                sensorData.distance = data.d;
+                                sensorData.signal_level = data.s;
+                                updateSensorDisplays();
+
+                                // Handle calibration status from device
+                                if (data.cal !== undefined) {
+                                    handleCalibStatus(data.cal);
+                                }
+
+                                // Process signal: Part 1 (spatial) → Part 2 (temporal)
+                                const rawPoints = signalProcessor.getRawPoints(data.s, data.d);
+                                const filteredPoints = signalProcessor.getFilteredPoints(rawPoints);
+                                
+                                // Get processed points from device (for yellow display)
+                                const devicePoints = data.p ? data.p.map(p => ({
+                                    x: p.x,
+                                    y: p.y,
+                                    dist: p.dist
+                                })) : [];
+                                
+                                if (isPlayMode) {
+                                    updatePlayModeWithSignalPoints(filteredPoints);
+                                } else {
+                                    drawGestures(currentPresetName);
+                                    drawSignalPoints(rawPoints, filteredPoints, devicePoints);
+                                }
+                                recordSample(data.s, data.d, filteredPoints);
+
+                                sendNextChunk();
+                            } else if (data.id !== undefined && data.c !== undefined) {
+                                // Response to a serial request
+                                const cb = pendingSerialRequests.get(data.id);
+                                if (cb) {
+                                    pendingSerialRequests.delete(data.id);
+                                    const bodyStr = data.b !== undefined ? JSON.stringify(data.b) : '';
+                                    cb({
+                                        ok: data.c >= 200 && data.c < 300,
+                                        status: data.c,
+                                        text: () => Promise.resolve(bodyStr),
+                                        json: () => Promise.resolve(data.b)
+                                    });
+                                }
+                            }
+                        } catch (e) {
+                            // ignore parse errors
+                        }
+                    }
+                }
+            } catch (err) {
+                if (serialConnected) {
+                    console.error('Serial read error:', err);
+                }
+            } finally {
+                serialReader.releaseLock();
+                serialReader = null;
             }
         }
 
@@ -799,9 +1672,18 @@
         function renderConfig() {
             document.getElementById('defaultPreset').value = configData.preset || '';
             document.getElementById('color1').value = configData.color1 || '#FE3A86';
-            document.getElementById('color2').value = configData.color2 || '#5521DA';
+            document.getElementById('color2').value = configData.color2 || '#7742ff';
             document.getElementById('color1Picker').value = configData.color1 || '#FE3A86';
-            document.getElementById('color2Picker').value = configData.color2 || '#5521DA';
+            document.getElementById('color2Picker').value = configData.color2 || '#7742ff';
+            document.getElementById('wifiSsid').value = configData.wifi_ssid || '';
+            document.getElementById('wifiPassword').value = configData.wifi_password || '';
+            document.getElementById('wifiApSsid').value = configData.wifi_ap_ssid || '';
+            document.getElementById('wifiApPassword').value = configData.wifi_ap_password || '';
+            document.getElementById('distanceMinAvgSpeed').value = (configData.distance_min_avg_speed !== undefined && configData.distance_min_avg_speed !== null) ? configData.distance_min_avg_speed : 2;
+            document.getElementById('distanceMaxAvgSpeed').value = (configData.distance_max_avg_speed !== undefined && configData.distance_max_avg_speed !== null) ? configData.distance_max_avg_speed : 8;
+            document.getElementById('distanceAvgResetThreshold').value = (configData.distance_avg_reset_threshold !== undefined && configData.distance_avg_reset_threshold !== null) ? configData.distance_avg_reset_threshold : 100;
+            document.getElementById('xAvgSpeed').value = (configData.x_avg_speed !== undefined && configData.x_avg_speed !== null) ? configData.x_avg_speed : 50;
+            document.getElementById('validStreakThreshold').value = (configData.valid_streak_threshold !== undefined && configData.valid_streak_threshold !== null) ? configData.valid_streak_threshold : 5;
             updateGradient();
         }
 
@@ -811,6 +1693,393 @@
             const color2 = document.getElementById('color2').value;
             const preview = document.getElementById('gradientPreview');
             preview.style.background = `linear-gradient(to right, ${color1}, ${color2})`;
+        }
+
+        // Signal processing class — lightweight hand tracking
+        // Split into two stages:
+        //   Part 1 (getRawPoints): spatial processing only — region detection, weighted CoM.
+        //           Returns raw points with relative X/Y and signal strength. No temporal smoothing.
+        //   Part 2 (getFilteredPoints): validity check, proximity slot matching, EMA smoothing, hold.
+        //           Returns smooth filtered points.
+        class SignalProcessor {
+            constructor() {
+                this.CH_COUNT = 7;
+                this.MAX_REGIONS = 2;
+
+                // Fallback thresholds (used when calibration is not yet done)
+                this.DEFAULT_NOISE_FLOOR = 30;
+                this.DEFAULT_MAX_DIST = 400;
+
+                this.DEFAULT_SMOOTH = 0.4;  // fallback EMA (0 = instant, 1 = freeze)
+                this.HOLD_FRAMES = 3;       // keep point visible after hand leaves
+
+                // Per-slot tracked state (slot = persistent identity for a hand)
+                this.slotX = new Float32Array(this.MAX_REGIONS);
+                this.slotY = new Float32Array(this.MAX_REGIONS);     // relative Y (0-1)
+                this.slotDist = new Float32Array(this.MAX_REGIONS);  // raw distance mm (for gestures)
+                this.slotActive = new Uint8Array(this.MAX_REGIONS);  // 0/1
+                this.slotHold = new Uint8Array(this.MAX_REGIONS);
+            }
+
+            // ---- Part 1: Spatial processing (no temporal smoothing) ----
+            // Returns: [{ x, y, dist, strength, validSignal, validDistance }, ...]
+            //   x: 0-1 (0 = sensor 6, 1 = sensor 0)
+            //   y: relative distance (0-1, where 1 = maxDist-100; can exceed 1)
+            //   dist: raw weighted average distance in mm
+            //   strength: relative signal (>0 if above calibration, <0 if below)
+            //   validSignal: true if signal above calibration threshold
+            //   validDistance: true if distance within calibration range
+            getRawPoints(signal, distance) {
+                const CH = this.CH_COUNT;
+                const MR = this.MAX_REGIONS;
+                const minSig = calibData.min_signal || [];
+                const maxDist = calibData.max_distance || [];
+                const hasCalib = minSig.length >= CH && minSig.some(v => v > 0);
+
+                // Per-channel thresholds
+                const noiseFloors = new Float32Array(CH);
+                const maxDists = new Float32Array(CH);
+                const manualMaxDist = calibData.manual_max_distance || 1200;
+                for (let i = 0; i < CH; i++) {
+                    noiseFloors[i] = hasCalib ? (minSig[i] || 0) : this.DEFAULT_NOISE_FLOOR;
+                    const rawMaxDist = hasCalib ? (maxDist[i] || 1000) : this.DEFAULT_MAX_DIST;
+                    // Apply manual_max_distance limit: min(max_distance[i], manual_max_distance) - 100
+                    const cappedMaxDist = Math.min(rawMaxDist, manualMaxDist);
+                    maxDists[i] = Math.max(cappedMaxDist - 100, 0);
+                }
+
+                // Per-channel weights: signal - noiseFloor (only positive → active channel)
+                const weights = new Float32Array(CH);
+                let totalWeight = 0;
+                for (let i = 0; i < CH; i++) {
+                    if (signal[i] > noiseFloors[i]) {
+                        weights[i] = signal[i] - noiseFloors[i];
+                        totalWeight += weights[i];
+                    }
+                }
+
+                const rawPoints = [];
+                if (totalWeight <= 0) return rawPoints;
+
+                // Find contiguous regions of active channels
+                const regions = [];
+                let region = [];
+                for (let i = 0; i < CH; i++) {
+                    if (weights[i] > 0) {
+                        region.push(i);
+                    } else if (region.length > 0) {
+                        regions.push(region);
+                        region = [];
+                    }
+                }
+                if (region.length > 0) regions.push(region);
+
+                const count = Math.min(regions.length, MR);
+
+                for (let r = 0; r < count; r++) {
+                    const reg = regions[r];
+                    let wSum = 0, wXs = 0, wDs = 0, wMaxD = 0;
+                    for (const i of reg) {
+                        wSum += weights[i];
+                        wXs += i * weights[i];
+                        wDs += distance[i] * weights[i];
+                        wMaxD += maxDists[i] * weights[i];
+                    }
+                    const x = 1.0 - (wXs / wSum) / 6.0;
+                    const dist = wDs / wSum;
+                    const refMaxDist = wMaxD / wSum;
+                    const y = refMaxDist > 0 ? dist / refMaxDist : 0;
+                    // strength: average (signal - noiseFloor) per channel in region
+                    const strength = wSum / reg.length;
+
+                    rawPoints.push({
+                        x,
+                        y,
+                        dist,
+                        strength,
+                        validSignal: true,        // by construction (region = above-threshold channels)
+                        validDistance: dist < refMaxDist
+                    });
+                }
+                return rawPoints;
+            }
+
+            // ---- Part 2: Validity check + temporal smoothing ----
+            // Input: raw points from getRawPoints()
+            // Returns: [{ x, y, dist }, ...]  (smoothed, only valid points)
+            getFilteredPoints(rawPoints) {
+                const MR = this.MAX_REGIONS;
+
+                // Only valid raw points enter the filter
+                const valid = rawPoints.filter(p => p.validSignal && p.validDistance);
+                const count = Math.min(valid.length, MR);
+
+                if (count > 0) {
+                    // Proximity-based slot matching
+                    const usedSlots = new Set();
+                    const usedRegions = new Set();
+                    const assignments = new Map();
+
+                    const activeSlots = [];
+                    for (let si = 0; si < MR; si++) {
+                        if (this.slotActive[si]) activeSlots.push(si);
+                    }
+
+                    if (activeSlots.length > 0) {
+                        const pairs = [];
+                        for (let ri = 0; ri < count; ri++) {
+                            for (const si of activeSlots) {
+                                pairs.push({ d: Math.abs(valid[ri].x - this.slotX[si]), ri, si });
+                            }
+                        }
+                        pairs.sort((a, b) => a.d - b.d);
+                        for (const { ri, si } of pairs) {
+                            if (usedRegions.has(ri) || usedSlots.has(si)) continue;
+                            assignments.set(ri, si);
+                            usedRegions.add(ri);
+                            usedSlots.add(si);
+                        }
+                    }
+
+                    for (let ri = 0; ri < count; ri++) {
+                        if (!usedRegions.has(ri)) {
+                            for (let si = 0; si < MR; si++) {
+                                if (!usedSlots.has(si)) {
+                                    assignments.set(ri, si);
+                                    usedSlots.add(si);
+                                    usedRegions.add(ri);
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // EMA smoothing
+                    const smooth = (configData.x_avg_speed !== undefined && configData.x_avg_speed !== null)
+                        ? configData.x_avg_speed / 100.0
+                        : this.DEFAULT_SMOOTH;
+
+                    for (const [ri, si] of assignments) {
+                        const pt = valid[ri];
+                        if (this.slotActive[si]) {
+                            this.slotX[si] = this.slotX[si] * smooth + pt.x * (1 - smooth);
+                            this.slotY[si] = this.slotY[si] * smooth + pt.y * (1 - smooth);
+                            this.slotDist[si] = this.slotDist[si] * smooth + pt.dist * (1 - smooth);
+                        } else {
+                            this.slotX[si] = pt.x;
+                            this.slotY[si] = pt.y;
+                            this.slotDist[si] = pt.dist;
+                        }
+                        this.slotActive[si] = 1;
+                        this.slotHold[si] = this.HOLD_FRAMES;
+                    }
+
+                    for (let si = 0; si < MR; si++) {
+                        if (!usedSlots.has(si) && this.slotActive[si]) {
+                            if (this.slotHold[si] > 0) this.slotHold[si]--;
+                            else this.slotActive[si] = 0;
+                        }
+                    }
+                } else {
+                    for (let si = 0; si < MR; si++) {
+                        if (this.slotActive[si]) {
+                            if (this.slotHold[si] > 0) this.slotHold[si]--;
+                            else this.slotActive[si] = 0;
+                        }
+                    }
+                }
+
+                const points = [];
+                for (let si = 0; si < MR; si++) {
+                    if (this.slotActive[si]) {
+                        points.push({ x: this.slotX[si], y: this.slotY[si], dist: this.slotDist[si] });
+                    }
+                }
+                return points;
+            }
+        }
+
+        const signalProcessor = new SignalProcessor();
+
+        // ---- Recording ----
+        let recording = false;
+        let recordData = [];
+        let recordStartTime = 0;
+
+        function toggleRecording() {
+            if (!recording) {
+                // Start
+                recording = true;
+                recordData = [];
+                recordStartTime = performance.now();
+                const btn = document.getElementById('recordBtn');
+                btn.classList.add('recording');
+                btn.textContent = '⏹ Stop';
+            } else {
+                // Stop & download
+                recording = false;
+                const btn = document.getElementById('recordBtn');
+                btn.classList.remove('recording');
+                btn.textContent = '⏺ Record';
+                downloadRecording();
+            }
+        }
+
+        function recordSample(signal, distance, points) {
+            if (!recording) return;
+            const t = Math.round(performance.now() - recordStartTime);
+            recordData.push(JSON.stringify({ t, in: { s: signal, d: distance }, out: points }));
+        }
+
+        function recordEvent(obj) {
+            if (!recording) return;
+            const t = Math.round(performance.now() - recordStartTime);
+            recordData.push(JSON.stringify({ t, event: obj }));
+        }
+
+        function downloadRecording() {
+            if (recordData.length === 0) return;
+            const blob = new Blob([recordData.join('\n') + '\n'], { type: 'application/jsonl' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            const now = new Date();
+            const ts = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+            a.download = `quray-recording-${ts}.jsonl`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // ---- Device calibration ----
+        let calibrationPending = false;
+
+        async function startCalibration() {
+            if (calibrationPending) return;
+            calibrationPending = true;
+            const btn = document.getElementById('calibBtn');
+            btn.classList.remove('calibrated');
+            btn.classList.add('calibrating');
+            btn.textContent = '🎯 ...';
+            try {
+                await apiFetch('/calibrate', { method: 'POST' });
+                recordEvent({ type: 'calib_start' });
+            } catch (e) {
+                calibrationPending = false;
+                btn.classList.remove('calibrating');
+                btn.textContent = '🎯 Calibrate';
+            }
+        }
+
+        function handleCalibStatus(cal) {
+            const btn = document.getElementById('calibBtn');
+            if (!btn) return;
+            if (cal && cal !== 'done' && typeof cal === 'string' && cal.includes('/')) {
+                // In progress: "12/64"
+                btn.classList.remove('calibrated');
+                btn.classList.add('calibrating');
+                btn.textContent = '🎯 ' + cal;
+            } else if (cal === 'done') {
+                if (calibrationPending) {
+                    calibrationPending = false;
+                    btn.classList.remove('calibrating');
+                    btn.classList.add('calibrated');
+                    btn.textContent = '🎯 Calibrated';
+                    // Fetch updated calibration from device
+                    loadCalibFile();
+                }
+            }
+        }
+
+        async function loadCalibFile() {
+            try {
+                const resp = await apiFetch('/calib.yml');
+                const text = typeof resp === 'string' ? resp : await resp.text();
+                const parsed = jsyaml.load(text);
+                if (parsed && parsed.min_signal) {
+                    calibData.min_signal = parsed.min_signal;
+                    calibData.max_distance = parsed.max_distance;
+                    calibData.manual_max_distance = parsed.manual_max_distance || 1200;
+                    renderCalibration();
+                    recordEvent({
+                        type: 'calib_done',
+                        min_signal: parsed.min_signal,
+                        max_distance: parsed.max_distance
+                    });
+                }
+            } catch (e) { /* ignore */ }
+        }
+
+        // Draw detected points on the gesture canvas
+        // rawPoints: Part 1 output (colored by validity)
+        // filteredPoints: Part 2 output (green)
+        function drawSignalPoints(rawPoints, filteredPoints, devicePoints) {
+            const canvas = document.getElementById('gestureCanvas');
+            if (!canvas) return;
+            const ctx = canvas.getContext('2d');
+
+            // ---- Processed points from device (yellow) ----
+            // These are the points displayed on device screen (coordinates 0-1, y can be >1)
+            for (const pt of devicePoints) {
+                const cx = pt.x * canvas.width;
+                // y is relative (0-1, can be >1 if distance > calibration)
+                // Canvas Y: 0 at top, max_distance at bottom, so y=0 maps to bottom, y=1 maps to top
+                // Use pt.y directly as it's already calculated relative value
+                const cy = Math.max(0, canvas.height * (1 - pt.y));
+
+                // Outer glow
+                ctx.beginPath();
+                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255, 255, 68, 0.25)';
+                ctx.fill();
+
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#ffff44';
+                ctx.fill();
+
+                // Crosshair
+                ctx.strokeStyle = 'rgba(255, 255, 68, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx - 15, cy);
+                ctx.lineTo(cx + 15, cy);
+                ctx.moveTo(cx, cy - 15);
+                ctx.lineTo(cx, cy + 15);
+                ctx.stroke();
+            }
+
+            // ---- Filtered points from JavaScript processing (green) ----
+            for (const pt of filteredPoints) {
+                const cx = pt.x * canvas.width;
+                // y is relative (0-1), convert to canvas coordinates
+                // Canvas Y: 0 at top, 700mm at bottom, so y=0 maps to bottom, y=1 maps to top
+                const cy = Math.max(0, canvas.height * (1 - pt.y));
+
+                // Outer glow
+                ctx.beginPath();
+                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(68, 255, 68, 0.25)';
+                ctx.fill();
+
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+                ctx.fillStyle = '#44ff44';
+                ctx.fill();
+
+                // Crosshair
+                ctx.strokeStyle = 'rgba(68, 255, 68, 0.6)';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(cx - 15, cy);
+                ctx.lineTo(cx + 15, cy);
+                ctx.moveTo(cx, cy - 15);
+                ctx.lineTo(cx, cy + 15);
+                ctx.stroke();
+            }
         }
 
         // Draw gestures on canvas
@@ -825,11 +2094,11 @@
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
             // Draw background
-            ctx.fillStyle = '#f9f9f9';
+            ctx.fillStyle = '#0a0a0a';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw grid
-            ctx.strokeStyle = '#e0e0e0';
+            ctx.strokeStyle = '#333333';
             ctx.lineWidth = 1;
             
             // Vertical lines (X axis: 0 to 1)
@@ -851,7 +2120,7 @@
             }
 
             // Draw axis labels
-            ctx.fillStyle = '#666';
+            ctx.fillStyle = '#e0e0e0';
             ctx.font = '12px sans-serif';
             
             // X axis labels
@@ -899,14 +2168,14 @@
                         ctx.strokeRect(x1, y1, width, height);
 
                         // Draw label
-                        ctx.fillStyle = isSelected ? '#000' : '#999';
+                        ctx.fillStyle = isSelected ? '#ffffff' : '#999';
                         ctx.font = isSelected ? 'bold 16px sans-serif' : '12px sans-serif';
                         ctx.fillText(`G${index + 1}`, x1 + 5, y1 + 20);
 
                         // Draw coordinates for selected gesture
                         if (isSelected) {
                             ctx.font = '11px monospace';
-                            ctx.fillStyle = '#000';
+                            ctx.fillStyle = '#ffffff';
                             
                             // Bottom left corner - start coordinates (x_min, y_min)
                             const startCoords = `${xMin.toFixed(2)}, ${yMin.toFixed(0)}`;
@@ -927,21 +2196,29 @@
             // Color picker sync
             document.getElementById('color1').addEventListener('input', (e) => {
                 document.getElementById('color1Picker').value = e.target.value;
+                configData.color1 = e.target.value;
+                markDirty('config');
                 updateGradient();
             });
 
             document.getElementById('color1Picker').addEventListener('input', (e) => {
                 document.getElementById('color1').value = e.target.value;
+                configData.color1 = e.target.value;
+                markDirty('config');
                 updateGradient();
             });
 
             document.getElementById('color2').addEventListener('input', (e) => {
                 document.getElementById('color2Picker').value = e.target.value;
+                configData.color2 = e.target.value;
+                markDirty('config');
                 updateGradient();
             });
 
             document.getElementById('color2Picker').addEventListener('input', (e) => {
                 document.getElementById('color2').value = e.target.value;
+                configData.color2 = e.target.value;
+                markDirty('config');
                 updateGradient();
             });
 
@@ -958,6 +2235,58 @@
                 updateGestureCounter();
                 drawGestures(currentPresetName);
                 renderMidiEvents();
+                renderCvEvents();
+            });
+
+            // Config fields change handlers
+            document.getElementById('defaultPreset').addEventListener('change', (e) => {
+                configData.preset = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('wifiSsid').addEventListener('input', (e) => {
+                configData.wifi_ssid = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('wifiPassword').addEventListener('input', (e) => {
+                configData.wifi_password = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('wifiApSsid').addEventListener('input', (e) => {
+                configData.wifi_ap_ssid = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('wifiApPassword').addEventListener('input', (e) => {
+                configData.wifi_ap_password = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('distanceMinAvgSpeed').addEventListener('input', (e) => {
+                configData.distance_min_avg_speed = parseInt(e.target.value) || 2;
+                markDirty('config');
+            });
+
+            document.getElementById('distanceMaxAvgSpeed').addEventListener('input', (e) => {
+                configData.distance_max_avg_speed = parseInt(e.target.value) || 8;
+                markDirty('config');
+            });
+
+            document.getElementById('distanceAvgResetThreshold').addEventListener('input', (e) => {
+                configData.distance_avg_reset_threshold = parseInt(e.target.value) || 100;
+                markDirty('config');
+            });
+
+            document.getElementById('xAvgSpeed').addEventListener('input', (e) => {
+                configData.x_avg_speed = parseInt(e.target.value) || 50;
+                markDirty('config');
+            });
+
+            document.getElementById('validStreakThreshold').addEventListener('input', (e) => {
+                configData.valid_streak_threshold = parseInt(e.target.value) || 5;
+                markDirty('config');
             });
 
             // Canvas event handlers
@@ -984,6 +2313,17 @@
                     redo();
                 }
             });
+
+            // MIDI CC value slider update display
+            const midiCcValueSlider = document.getElementById('midiCcValue');
+            const midiCcValueDisplay = document.getElementById('midiCcValueDisplay');
+            if (midiCcValueSlider && midiCcValueDisplay) {
+                midiCcValueSlider.addEventListener('input', (e) => {
+                    midiCcValueDisplay.textContent = e.target.value;
+                });
+                // Also send CC when slider is moved (optional - can be removed if only button should send)
+                // midiCcValueSlider.addEventListener('input', sendMidiCC);
+            }
         }
 
         // Save current preset state to history
@@ -1042,6 +2382,7 @@
                 drawGestures(currentPresetName);
                 updateHistoryButtons();
                 renderMidiEvents();
+                renderCvEvents();
                 
                 showStatus('Undo successful', 'success');
             }
@@ -1078,6 +2419,7 @@
                 drawGestures(currentPresetName);
                 updateHistoryButtons();
                 renderMidiEvents();
+                renderCvEvents();
                 
                 showStatus('Redo successful', 'success');
             }
@@ -1229,11 +2571,11 @@
             const height = Math.abs(y2 - y1);
             
             // Semi-transparent fill
-            ctx.fillStyle = 'rgba(85, 33, 218, 0.3)';
+            ctx.fillStyle = 'rgba(119, 66, 255, 0.3)';
             ctx.fillRect(x, y, width, height);
             
             // Dashed border
-            ctx.strokeStyle = '#5521DA';
+            ctx.strokeStyle = '#7742ff';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
             ctx.strokeRect(x, y, width, height);
@@ -1295,6 +2637,7 @@
                 updateGestureCounter();
                 drawGestures(currentPresetName);
                 renderMidiEvents();
+                renderCvEvents();
             }
         }
 
@@ -1432,6 +2775,7 @@
 
             // Update the gesture position
             gesture.position = [active, newXMin, newYMin, newXMax, newYMax];
+            markDirty('preset', currentPresetName);
         }
 
         // Update gesture boundary during drag
@@ -1468,6 +2812,7 @@
 
             // Update the gesture position
             gesture.position = [active, xMin, yMin, xMax, yMax];
+            markDirty('preset', currentPresetName);
         }
 
         // Update gesture counter display
@@ -1501,6 +2846,7 @@
             updateGestureCounter();
             drawGestures(currentPresetName);
             renderMidiEvents();
+            renderCvEvents();
         }
 
         // Navigate to next gesture
@@ -1516,6 +2862,7 @@
             updateGestureCounter();
             drawGestures(currentPresetName);
             renderMidiEvents();
+            renderCvEvents();
         }
 
         // MIDI note conversion
@@ -1568,25 +2915,14 @@
                 const isNote = event.note !== undefined;
                 const isCC = event.cc !== undefined;
                 
-                // Ensure CC events have bottom/top defaults
+                // Ensure CC events have bottom/top/singleValue defaults
                 if (isCC) {
                     if (event.bottom === undefined) event.bottom = 0;
                     if (event.top === undefined) event.top = 127;
+                    if (event.singleValue === undefined) event.singleValue = false;
                 }
                 
                 let controlsHTML = '<div class="midi-event-controls">';
-                
-                // Channel selector
-                controlsHTML += `
-                    <div>
-                        <label>Channel</label>
-                        <select onchange="updateMidiEvent(${index}, 'channel', parseInt(this.value))">
-                            ${Array.from({length: 16}, (_, i) => i + 1).map(ch => 
-                                `<option value="${ch}" ${event.channel === ch ? 'selected' : ''}>${ch}</option>`
-                            ).join('')}
-                        </select>
-                    </div>
-                `;
                 
                 // Type selector
                 controlsHTML += `
@@ -1595,6 +2931,19 @@
                         <select onchange="updateMidiEventType(${index}, this.value)">
                             <option value="note" ${isNote ? 'selected' : ''}>Note</option>
                             <option value="cc" ${isCC ? 'selected' : ''}>CC</option>
+                        </select>
+                    </div>
+                `;
+                
+                // Channel selector - 16 channels for Note/CC
+                const channelCount = 16;
+                controlsHTML += `
+                    <div>
+                        <label>Channel</label>
+                        <select onchange="updateMidiEvent(${index}, 'channel', parseInt(this.value))">
+                            ${Array.from({length: channelCount}, (_, i) => i + 1).map(ch => 
+                                `<option value="${ch}" ${event.channel === ch ? 'selected' : ''}>${ch}</option>`
+                            ).join('')}
                         </select>
                     </div>
                 `;
@@ -1685,8 +3034,270 @@
                 note: 60
             });
 
+            markDirty('preset', currentPresetName);
             renderMidiEvents();
             showStatus('MIDI event added', 'success');
+        }
+
+        // Render CV events list
+        function renderCvEvents() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || preset.gestures.length === 0) {
+                document.getElementById('cvEventsList').innerHTML = '<p style="color: #999; font-size: 13px;">No gesture selected</p>';
+                return;
+            }
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture.cv || !Array.isArray(gesture.cv)) {
+                gesture.cv = [];
+            }
+
+            const listContainer = document.getElementById('cvEventsList');
+            listContainer.innerHTML = '';
+
+            if (gesture.cv.length === 0) {
+                listContainer.innerHTML = '<p style="color: #999; font-size: 13px;">No CV events. Click + to add.</p>';
+                return;
+            }
+
+            gesture.cv.forEach((event, index) => {
+                const eventDiv = document.createElement('div');
+                eventDiv.className = 'midi-event';
+                
+                // Ensure CV events have bottom/top defaults
+                if (event.bottom === undefined) event.bottom = -5.0;
+                if (event.top === undefined) event.top = 5.0;
+                
+                const cvBottom = event.bottom !== undefined ? event.bottom : -5.0;
+                const cvTop = event.top !== undefined ? event.top : 5.0;
+                const singleValue = event.singleValue !== undefined ? event.singleValue : false;
+                
+                let controlsHTML = '<div class="midi-event-controls">';
+                
+                // Channel selector - 4 channels for CV
+                controlsHTML += `
+                    <div>
+                        <label>Channel</label>
+                        <select onchange="updateCvEvent(${index}, 'channel', parseInt(this.value))">
+                            ${Array.from({length: 4}, (_, i) => i + 1).map(ch => 
+                                `<option value="${ch}" ${event.channel === ch ? 'selected' : ''}>${ch}</option>`
+                            ).join('')}
+                        </select>
+                    </div>
+                `;
+                
+                // CV-specific controls
+                controlsHTML += `
+                    <div>
+                        <label>Axis</label>
+                        <select onchange="updateCvEvent(${index}, 'axis', this.value)">
+                            <option value="x" ${event.axis === 'x' ? 'selected' : ''}>X</option>
+                            <option value="y" ${event.axis === 'y' ? 'selected' : ''}>Y</option>
+                        </select>
+                    </div>
+                    <div style="flex-basis: 100%; display: flex; align-items: center; gap: 8px; margin-top: 5px;">
+                        <input type="checkbox" id="cvSingleValueCheck${index}" ${singleValue ? 'checked' : ''} 
+                               onchange="toggleCvSingleValue(${index}, this.checked)"
+                               style="width: auto; margin: 0;">
+                        <label for="cvSingleValueCheck${index}" style="margin: 0; font-size: 13px;">Single value</label>
+                    </div>
+                    <div>
+                        <label>Bottom: <span id="cvBottomValue${index}">${cvBottom.toFixed(2)}</span> V</label>
+                        <input type="range" min="-5" max="5" step="0.1" value="${cvBottom}" 
+                               id="cvBottomSlider${index}"
+                               oninput="handleCvSliderChange(${index}, 'bottom', parseFloat(this.value))"
+                               style="width: 100%;">
+                    </div>
+                    <div>
+                        <label>Top: <span id="cvTopValue${index}">${cvTop.toFixed(2)}</span> V</label>
+                        <input type="range" min="-5" max="5" step="0.1" value="${cvTop}" 
+                               id="cvTopSlider${index}"
+                               oninput="handleCvSliderChange(${index}, 'top', parseFloat(this.value))"
+                               style="width: 100%;">
+                    </div>
+                `;
+                
+                // Delete button
+                controlsHTML += `
+                    <button class="nav-button btn-delete" onclick="deleteCvEvent(${index})" title="Delete event">✕</button>
+                `;
+                
+                controlsHTML += '</div>';
+                eventDiv.innerHTML = controlsHTML;
+                listContainer.appendChild(eventDiv);
+            });
+        }
+
+        // Add new CV event
+        function addCvEvent() {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            if (!preset.gestures || preset.gestures.length === 0) {
+                showStatus('No gesture selected', 'error');
+                return;
+            }
+
+            const gesture = preset.gestures[currentGestureIndex];
+            if (!gesture.cv) {
+                gesture.cv = [];
+            }
+
+            // Save history
+            saveHistory();
+
+            // Add default CV event
+            gesture.cv.push({
+                channel: 1,
+                axis: 'y',
+                bottom: -5.0,
+                top: 5.0,
+                singleValue: false
+            });
+
+            markDirty('preset', currentPresetName);
+            renderCvEvents();
+            showStatus('CV event added', 'success');
+        }
+
+        // Delete CV event
+        function deleteCvEvent(index) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.cv || index < 0 || index >= gesture.cv.length) return;
+
+            // Save history
+            saveHistory();
+
+            gesture.cv.splice(index, 1);
+            markDirty('preset', currentPresetName);
+            renderCvEvents();
+            showStatus('CV event deleted', 'success');
+        }
+
+        // Update CV event property
+        function updateCvEvent(index, property, value) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.cv || index < 0 || index >= gesture.cv.length) return;
+
+            // Save history
+            saveHistory();
+
+            gesture.cv[index][property] = value;
+            markDirty('preset', currentPresetName);
+            showStatus('CV event updated', 'success');
+        }
+
+        // Handle CV slider change with single value support
+        function handleCvSliderChange(index, property, value) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.cv || index < 0 || index >= gesture.cv.length) return;
+            
+            // Save history before making changes
+            saveHistory();
+            
+            const event = gesture.cv[index];
+            const singleValue = event.singleValue !== undefined ? event.singleValue : false;
+            
+            // Update the changed property
+            event[property] = value;
+            
+            // If single value mode is enabled, sync both sliders
+            if (singleValue) {
+                event.bottom = value;
+                event.top = value;
+                
+                // Update both slider UI elements
+                const bottomSlider = document.getElementById(`cvBottomSlider${index}`);
+                const topSlider = document.getElementById(`cvTopSlider${index}`);
+                const bottomValue = document.getElementById(`cvBottomValue${index}`);
+                const topValue = document.getElementById(`cvTopValue${index}`);
+                
+                if (bottomSlider) {
+                    bottomSlider.value = value;
+                }
+                if (topSlider) {
+                    topSlider.value = value;
+                }
+                if (bottomValue) {
+                    bottomValue.textContent = value.toFixed(2);
+                }
+                if (topValue) {
+                    topValue.textContent = value.toFixed(2);
+                }
+            } else {
+                // Update the display for the changed property
+                const bottomValue = document.getElementById(`cvBottomValue${index}`);
+                const topValue = document.getElementById(`cvTopValue${index}`);
+                
+                if (property === 'bottom' && bottomValue) {
+                    bottomValue.textContent = value.toFixed(2);
+                }
+                if (property === 'top' && topValue) {
+                    topValue.textContent = value.toFixed(2);
+                }
+            }
+            
+            markDirty('preset', currentPresetName);
+            showStatus('CV event updated', 'success');
+        }
+
+        // Toggle CV single value mode
+        function toggleCvSingleValue(index, enabled) {
+            if (!currentPresetName || !presetsData[currentPresetName]) return;
+            
+            const preset = presetsData[currentPresetName];
+            const gesture = preset.gestures[currentGestureIndex];
+            
+            if (!gesture.cv || index < 0 || index >= gesture.cv.length) return;
+            
+            // Save history
+            saveHistory();
+            
+            const event = gesture.cv[index];
+            event.singleValue = enabled;
+            
+            if (enabled) {
+                // When enabling, set both to the current value (use bottom as reference, or top if bottom is not set)
+                const currentValue = event.bottom !== undefined ? event.bottom : (event.top !== undefined ? event.top : 0.0);
+                event.bottom = currentValue;
+                event.top = currentValue;
+                
+                // Update UI
+                const bottomSlider = document.getElementById(`cvBottomSlider${index}`);
+                const topSlider = document.getElementById(`cvTopSlider${index}`);
+                const bottomValue = document.getElementById(`cvBottomValue${index}`);
+                const topValue = document.getElementById(`cvTopValue${index}`);
+                
+                if (bottomSlider) {
+                    bottomSlider.value = currentValue;
+                }
+                if (topSlider) {
+                    topSlider.value = currentValue;
+                }
+                if (bottomValue) {
+                    bottomValue.textContent = currentValue.toFixed(2);
+                }
+                if (topValue) {
+                    topValue.textContent = currentValue.toFixed(2);
+                }
+            }
+            
+            markDirty('preset', currentPresetName);
+            showStatus('CV event updated', 'success');
         }
 
         // Delete MIDI event
@@ -1702,6 +3313,7 @@
             saveHistory();
 
             gesture.midi.splice(index, 1);
+            markDirty('preset', currentPresetName);
             renderMidiEvents();
             showStatus('MIDI event deleted', 'success');
         }
@@ -1747,12 +3359,24 @@
                 if (topValue) {
                     topValue.textContent = value;
                 }
+            } else {
+                // Update the display for the changed property
+                const bottomValue = document.getElementById(`ccBottomValue${index}`);
+                const topValue = document.getElementById(`ccTopValue${index}`);
+                
+                if (property === 'bottom' && bottomValue) {
+                    bottomValue.textContent = value;
+                }
+                if (property === 'top' && topValue) {
+                    topValue.textContent = value;
+                }
             }
             
+            markDirty('preset', currentPresetName);
             showStatus('MIDI event updated', 'success');
         }
 
-        // Toggle single value mode
+        // Toggle single value mode for MIDI events
         function toggleSingleValue(index, enabled) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
             
@@ -1793,6 +3417,7 @@
                 }
             }
             
+            markDirty('preset', currentPresetName);
             showStatus('MIDI event updated', 'success');
         }
 
@@ -1809,10 +3434,11 @@
             saveHistory();
 
             gesture.midi[index][property] = value;
+            markDirty('preset', currentPresetName);
             showStatus('MIDI event updated', 'success');
         }
 
-        // Update MIDI event type (Note <-> CC)
+        // Update MIDI event type (Note <-> CC <-> CV)
         function updateMidiEventType(index, type) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
             
@@ -1843,6 +3469,7 @@
                 };
             }
 
+            markDirty('preset', currentPresetName);
             renderMidiEvents();
             showStatus('MIDI event type changed', 'success');
         }
@@ -1874,9 +3501,11 @@
             }
 
             // Update display
+            markDirty('preset', currentPresetName);
             updateGestureCounter();
             drawGestures(currentPresetName);
             renderMidiEvents();
+            renderCvEvents();
 
             showStatus('Gesture deleted', 'success');
         }
@@ -1953,6 +3582,7 @@
                         note: 60
                     }
                 ],
+                cv: [],
                 position: [true, xMin, yMin, xMax, yMax]
             };
             
@@ -1978,9 +3608,11 @@
             canvas.style.cursor = 'default';
             
             // Update display
+            markDirty('preset', currentPresetName);
             updateGestureCounter();
             drawGestures(currentPresetName);
             renderMidiEvents();
+            renderCvEvents();
             
             showStatus(`New gesture created (${currentGestureIndex + 1}/${preset.gestures.length})`, 'success');
         }
@@ -2200,14 +3832,29 @@
             try {
                 // Update calibData from inputs
                 for (let i = 0; i < 7; i++) {
-                    const value = document.getElementById(`calib${i}`).value;
-                    calibData[i] = parseInt(value) || 0;
+                    const minSignalInput = document.getElementById(`calibMinSignal${i}`);
+                    const maxDistanceInput = document.getElementById(`calibMaxDistance${i}`);
+                    if (minSignalInput) {
+                        calibData.min_signal[i] = parseInt(minSignalInput.value) || 0;
+                    }
+                    if (maxDistanceInput) {
+                        calibData.max_distance[i] = parseInt(maxDistanceInput.value) || 1000;
+                    }
                 }
 
                 // Update configData from inputs
                 configData.preset = document.getElementById('defaultPreset').value;
                 configData.color1 = document.getElementById('color1').value;
                 configData.color2 = document.getElementById('color2').value;
+                configData.wifi_ssid = document.getElementById('wifiSsid').value;
+                configData.wifi_password = document.getElementById('wifiPassword').value;
+                configData.wifi_ap_ssid = document.getElementById('wifiApSsid').value;
+                configData.wifi_ap_password = document.getElementById('wifiApPassword').value;
+                configData.distance_min_avg_speed = parseInt(document.getElementById('distanceMinAvgSpeed').value) || 2;
+                configData.distance_max_avg_speed = parseInt(document.getElementById('distanceMaxAvgSpeed').value) || 8;
+                configData.distance_avg_reset_threshold = parseInt(document.getElementById('distanceAvgResetThreshold').value) || 100;
+                configData.x_avg_speed = parseInt(document.getElementById('xAvgSpeed').value) || 50;
+                configData.valid_streak_threshold = parseInt(document.getElementById('validStreakThreshold').value) || 5;
 
                 showStatus('Changes saved in memory. Use "Download All Files" to export.', 'success');
             } catch (error) {
@@ -2221,7 +3868,7 @@
                 const zip = new JSZip();
                 
                 // Add calib.yml
-                const calibYaml = calibData.join('\n') + '\n';
+                const calibYaml = jsyaml.dump(calibData, { lineWidth: -1 });
                 zip.file('calib.yml', calibYaml);
 
                 // Add config.yml
@@ -2588,6 +4235,7 @@
             }
 
             activePlayGestures = [];
+            playModeSignalPoints = [];
         }
 
         // Handle keydown in play mode
@@ -2612,6 +4260,9 @@
         // Handle mouse move in play mode
         function handlePlayModeMouseMove(event) {
             if (!isPlayMode || !currentPresetName || !presetsData[currentPresetName]) return;
+
+            // When serial is connected, signal points drive play mode — ignore mouse
+            if (serialConnected) return;
 
             const rect = playModeCanvas.getBoundingClientRect();
             const scaleX = playModeCanvas.width / rect.width;
@@ -2650,6 +4301,41 @@
             // Process CC events from active gestures
             processCCEvents(activePlayGestures);
 
+            drawPlayMode();
+            updatePlayModeInfo();
+        }
+
+        // Update play mode with signal processor points (from sensor data)
+        function updatePlayModeWithSignalPoints(points) {
+            if (!isPlayMode || !currentPresetName || !presetsData[currentPresetName]) return;
+
+            playModeSignalPoints = points;
+
+            const preset = presetsData[currentPresetName];
+            const previousActiveGestures = activePlayGestures;
+            activePlayGestures = [];
+
+            if (preset.gestures && Array.isArray(preset.gestures)) {
+                for (const pt of points) {
+                    const gx = pt.x;    // 0-1
+                    const gy = pt.dist; // distance mm (for gesture bounds matching)
+
+                    preset.gestures.forEach((gesture, index) => {
+                        if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                            const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                            if (active && gx >= xMin && gx <= xMax && gy >= yMin && gy <= yMax) {
+                                // Avoid duplicates (two points hitting the same gesture)
+                                if (!activePlayGestures.some(ag => ag.index === index)) {
+                                    activePlayGestures.push({ gesture, index, gestureX: gx, gestureY: gy });
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+
+            updateAudioPlayback(previousActiveGestures, activePlayGestures);
+            processCCEvents(activePlayGestures);
             drawPlayMode();
             updatePlayModeInfo();
         }
@@ -2712,7 +4398,7 @@
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             // Draw grid
-            ctx.strokeStyle = '#333';
+            ctx.strokeStyle = '#333333';
             ctx.lineWidth = 1;
             
             // Vertical lines
@@ -2734,7 +4420,7 @@
             }
 
             // Draw axis labels
-            ctx.fillStyle = '#888';
+            ctx.fillStyle = '#e0e0e0';
             ctx.font = '14px sans-serif';
             
             // Y axis labels
@@ -2784,6 +4470,30 @@
                     }
                 });
             }
+
+            // Draw signal points (from sensor data) — filtered, green
+            for (const pt of playModeSignalPoints) {
+                const cx = pt.x * canvas.width;
+                const cy = Math.max(0, canvas.height * (1 - pt.y));
+
+                // Outer glow
+                ctx.beginPath();
+                ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(68, 255, 68, 0.3)';
+                ctx.fill();
+
+                // Inner dot
+                ctx.beginPath();
+                ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+                ctx.fillStyle = '#44ff44';
+                ctx.fill();
+
+                // White center
+                ctx.beginPath();
+                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+            }
         }
 
         // Update play mode info panel
@@ -2791,7 +4501,10 @@
             const container = document.getElementById('playModeGestures');
             
             if (activePlayGestures.length === 0) {
-                container.innerHTML = '<div style="color: #999;">Move mouse over gestures to see MIDI events</div>';
+                const hint = serialConnected
+                    ? 'Move hand over sensors to trigger gestures'
+                    : 'Move mouse over gestures to see MIDI events';
+                container.innerHTML = '<div style="color: #999;">' + hint + '</div>';
                 return;
             }
 
@@ -2855,6 +4568,36 @@
                     });
                 } else {
                     html += '<div class="play-mode-midi-event" style="color: #999;">No MIDI events</div>';
+                }
+                
+                // Display CV events
+                if (gesture.cv && Array.isArray(gesture.cv)) {
+                    gesture.cv.forEach((event) => {
+                        html += '<div class="play-mode-midi-event">';
+                        
+                        // Calculate CV value based on axis and position within gesture
+                        const [active, xMin, yMin, xMax, yMax] = gesture.position;
+                        const cvBottom = event.bottom !== undefined ? event.bottom : 0;
+                        const cvTop = event.top !== undefined ? event.top : 127;
+                        let normalizedValue = 0;
+                        
+                        if (event.axis === 'x') {
+                            // Normalize X position within gesture bounds (0-1)
+                            const normalizedX = (gestureX - xMin) / (xMax - xMin);
+                            normalizedValue = Math.max(0, Math.min(1, normalizedX));
+                        } else {
+                            // Normalize Y position within gesture bounds (0-1)
+                            const normalizedY = (gestureY - yMin) / (yMax - yMin);
+                            normalizedValue = Math.max(0, Math.min(1, normalizedY));
+                        }
+                        
+                        // Map normalized value (0-1) to CV range (bottom-top)
+                        const cvValue = Math.round(cvBottom + normalizedValue * (cvTop - cvBottom));
+                        
+                        html += `⚡ CH${event.channel} CV (${event.axis?.toUpperCase() || 'Y'} axis): <strong>${cvValue}</strong>`;
+                        
+                        html += '</div>';
+                    });
                 }
                 
                 html += '</div>';
