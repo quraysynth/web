@@ -418,7 +418,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            background: #0a0a0a;
+            background: #000000;
         }
 
         canvas {
@@ -672,6 +672,14 @@
                         </select>
                     </div>
 
+                    <div class="input-group" style="margin-top: 15px;">
+                        <label for="pointType">Point Type</label>
+                        <select id="pointType">
+                            <option value="cloud">Cloud</option>
+                            <option value="cross">Cross</option>
+                        </select>
+                    </div>
+
                     <div style="margin-top: 15px;">
                         <div class="gradient-preview" id="gradientPreview"></div>
                         
@@ -682,7 +690,9 @@
                         
                         <div style="margin-top: 5px;">
                             <input type="text" id="color1" placeholder="#FE3A86" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; margin-bottom: 5px; background: #0a0a0a; color: #ffffff;">
-                            <input type="text" id="color2" placeholder="#7742ff" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;">
+                            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">Device value: <span id="color1Value" style="color: #fff; font-family: monospace;">-</span></div>
+                            <input type="text" id="color2" placeholder="#7742ff" style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; margin-bottom: 5px; background: #0a0a0a; color: #ffffff;">
+                            <div style="font-size: 12px; color: #888;">Device value: <span id="color2Value" style="color: #fff; font-family: monospace;">-</span></div>
                         </div>
                     </div>
 
@@ -782,7 +792,8 @@
                                 <button class="nav-button btn-delete" onclick="deleteGesture()" title="Delete current gesture">✕</button>
                             </div>
                             <div class="gesture-navigation" id="gestureCreateContainer" style="display: none;">
-                                <div style="color: #e0e0e0; font-size: 13px;">Draw rectangle on canvas</div>
+                                <div style="color: #e0e0e0; font-size: 13px;">Draw on canvas or wave hand</div>
+                                <button class="nav-button btn-create" id="gestureConfirmBtn" onclick="confirmDeviceGesture()" title="Confirm device gesture" style="display: none;">✓</button>
                                 <button class="nav-button btn-delete" onclick="cancelCreateGesture()" title="Cancel">✕</button>
                             </div>
                         </div>
@@ -791,7 +802,7 @@
 
                 <!-- Gesture Canvas -->
                 <div class="gesture-canvas-container">
-                    <canvas id="gestureCanvas" width="1200" height="600"></canvas>
+                    <canvas id="gestureCanvas" width="1200" height="700"></canvas>
                 </div>
             </div>
 
@@ -890,6 +901,7 @@
         // Gesture creation state
         let isCreatingGesture = false;
         let newGestureStart = null;
+        let deviceGestureBounds = null; // {xMin, yMin, xMax, yMax} in normalized 0-1 coords
         
         // Play mode state
         let isPlayMode = false;
@@ -900,6 +912,76 @@
         let playModeMouseY = 0;
         let playModeSignalPoints = [];
         
+        // Ring sector geometry — used for both gestureCanvas and playModeCanvas
+        // Parameters are recalculated per-canvas in sectorForCanvas()
+        function sectorForCanvas(canvas) {
+            const W = canvas.width, H = canvas.height;
+            const halfAngle = Math.PI * (96/2) / 180; 
+            // We want outer arc near the top and inner arc near the bottom
+            // outerR - innerR ≈ 0.85 * H  (vertical span of the sector)
+            // outer arc at y ≈ 0.05*H, inner arc at y ≈ 0.95*H
+            const vertSpan = H * 0.88;
+            // Outer arc should span ~95% of canvas width:
+            // 2*outerR*sin(halfAngle) = 0.95*W  →  outerR = 0.95*W/(2*sin(halfAngle))
+            const outerR = 0.95 * W / (2 * Math.sin(halfAngle));
+            const innerR = outerR - vertSpan;
+            const cx = W / 2;
+            const cy = H * 0.95 + innerR; // so inner arc sits at y ≈ 0.95*H
+            return {
+                cx, cy, innerR, outerR,
+                startAngle: -Math.PI / 2 - halfAngle,
+                endAngle:   -Math.PI / 2 + halfAngle,
+                halfAngle
+            };
+        }
+
+        // Convert logical coords (x: 0‑1, y: 0‑1) → canvas pixels
+        function logicalToCanvas(lx, ly, S) {
+            const angle  = S.startAngle + lx * (S.endAngle - S.startAngle);
+            const radius = S.innerR + ly * (S.outerR - S.innerR);
+            return {
+                x: S.cx + radius * Math.cos(angle),
+                y: S.cy + radius * Math.sin(angle)
+            };
+        }
+
+        // Convert canvas pixels → logical coords
+        function canvasToLogical(px, py, S) {
+            const dx = px - S.cx;
+            const dy = py - S.cy;
+            const radius = Math.sqrt(dx * dx + dy * dy);
+            let angle = Math.atan2(dy, dx);
+            // Normalise angle into the sector range
+            // atan2 returns (-π, π]; our sector straddles -π/2
+            const lx = (angle - S.startAngle) / (S.endAngle - S.startAngle);
+            const ly = (radius - S.innerR) / (S.outerR - S.innerR);
+            return { x: lx, y: ly };
+        }
+
+        // Check whether a logical point is inside the sector (with optional margin)
+        function isInsideSector(lx, ly, margin) {
+            margin = margin || 0;
+            return lx >= -margin && lx <= 1 + margin && ly >= -margin && ly <= 1 + margin;
+        }
+
+        // Draw an arc-segment path (the "bent rectangle") for a gesture zone
+        function sectorRectPath(ctx, S, xMin, yMin, xMax, yMax) {
+            const rInner = S.innerR + yMin * (S.outerR - S.innerR);
+            const rOuter = S.innerR + yMax * (S.outerR - S.innerR);
+            const aStart = S.startAngle + xMin * (S.endAngle - S.startAngle);
+            const aEnd   = S.startAngle + xMax * (S.endAngle - S.startAngle);
+            ctx.beginPath();
+            ctx.arc(S.cx, S.cy, rInner, aStart, aEnd, false);
+            ctx.arc(S.cx, S.cy, rOuter, aEnd, aStart, true);
+            ctx.closePath();
+        }
+
+        // Clip the canvas to the sector area
+        function clipToSector(ctx, S) {
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.clip();
+        }
+
         // Audio synthesis state
         let audioContext = null;
         let masterGain = null;
@@ -925,8 +1007,12 @@
         });
 
         // Normalize preset data - ensure CC events have bottom/top/singleValue, ensure CV array exists
+        // Also normalize gesture positions from legacy format (mm) to normalized format (0-1)
         function normalizePresetData(preset) {
             if (!preset || !preset.gestures) return;
+            
+            // Get max_distance for normalization (same as firmware)
+            const old_max_distance = 700;
             
             preset.gestures.forEach(gesture => {
                 // Normalize MIDI events
@@ -949,6 +1035,23 @@
                     if (event.top === undefined) event.top = 5.0;
                     if (event.singleValue === undefined) event.singleValue = false;
                 });
+                
+                // Normalize gesture positions from legacy format (mm) to normalized format (0-1)
+                // Same logic as firmware: if y_min > 1.0 or y_max > 1.0, it's legacy format in mm
+                if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
+                    const y_min_raw = parseFloat(gesture.position[2]);
+                    const y_max_raw = parseFloat(gesture.position[4]);
+                    
+                    // Check if coordinates are in legacy format (either value > 1.0 suggests mm format)
+                    // Normalized values are always 0.0-1.0, so anything > 1.0 is likely in mm
+                    if (y_min_raw > 1.0 || y_max_raw > 1.0) {
+                        // Legacy format detected - convert from mm to normalized (0-1)
+                        // Normalize based on max_distance (same as firmware)
+                        gesture.position[2] = y_min_raw / old_max_distance;
+                        gesture.position[4] = y_max_raw / old_max_distance;
+                    }
+                    // If already normalized (0-1), use as is
+                }
             });
         }
 
@@ -994,6 +1097,10 @@
                     } else if (file.type === 'config') {
                         url = '/config.yml';
                         content = jsyaml.dump(file.data, { lineWidth: -1 });
+                        // Output config.yml to browser console
+                        console.log('=== config.yml отправляется на устройство ===');
+                        console.log(content);
+                        console.log('===========================================');
                     } else if (file.type === 'preset') {
                         url = `/presets/${file.name}.yml`;
                         content = jsyaml.dump(file.data, { lineWidth: -1 });
@@ -1071,6 +1178,8 @@
                     normalizePresetData(presetsData[name]);
                     presetNames.push(name);
                 }
+                // Sort preset names alphabetically
+                presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
 
                 // Populate preset selectors
                 populatePresetSelectors();
@@ -1587,6 +1696,20 @@
                                 sensorData.signal_level = data.s;
                                 updateSensorDisplays();
 
+                                // Update color values from device
+                                if (data.color1 !== undefined) {
+                                    const color1Display = document.getElementById('color1Value');
+                                    if (color1Display) {
+                                        color1Display.textContent = `0x${data.color1.toString(16).toUpperCase().padStart(6, '0')}`;
+                                    }
+                                }
+                                if (data.color2 !== undefined) {
+                                    const color2Display = document.getElementById('color2Value');
+                                    if (color2Display) {
+                                        color2Display.textContent = `0x${data.color2.toString(16).toUpperCase().padStart(6, '0')}`;
+                                    }
+                                }
+
                                 // Handle calibration status from device
                                 if (data.cal !== undefined) {
                                     handleCalibStatus(data.cal);
@@ -1599,17 +1722,21 @@
                                 // Get processed points from device (for yellow display)
                                 const devicePoints = data.p ? data.p.map(p => ({
                                     x: p.x,
-                                    y: p.y,
-                                    dist: p.dist
+                                    y: p.y
                                 })) : [];
                                 
+                                // Track device points for gesture creation mode
+                                if (isCreatingGesture && devicePoints.length > 0) {
+                                    updateDeviceGestureBounds(devicePoints);
+                                }
+
                                 if (isPlayMode) {
                                     updatePlayModeWithSignalPoints(filteredPoints);
                                 } else {
                                     drawGestures(currentPresetName);
                                     drawSignalPoints(rawPoints, filteredPoints, devicePoints);
                                 }
-                                recordSample(data.s, data.d, filteredPoints);
+                                recordSample(data.s, data.d, filteredPoints, devicePoints);
 
                                 sendNextChunk();
                             } else if (data.id !== undefined && data.c !== undefined) {
@@ -1654,6 +1781,9 @@
                 selectedPresetSelect.remove(1);
             }
 
+            // Sort preset names alphabetically before populating
+            presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
             // Add preset options
             presetNames.forEach(name => {
                 const option1 = document.createElement('option');
@@ -1671,6 +1801,7 @@
         // Render config inputs
         function renderConfig() {
             document.getElementById('defaultPreset').value = configData.preset || '';
+            document.getElementById('pointType').value = configData.point_type || 'cloud';
             document.getElementById('color1').value = configData.color1 || '#FE3A86';
             document.getElementById('color2').value = configData.color2 || '#7742ff';
             document.getElementById('color1Picker').value = configData.color1 || '#FE3A86';
@@ -1716,16 +1847,14 @@
                 // Per-slot tracked state (slot = persistent identity for a hand)
                 this.slotX = new Float32Array(this.MAX_REGIONS);
                 this.slotY = new Float32Array(this.MAX_REGIONS);     // relative Y (0-1)
-                this.slotDist = new Float32Array(this.MAX_REGIONS);  // raw distance mm (for gestures)
                 this.slotActive = new Uint8Array(this.MAX_REGIONS);  // 0/1
                 this.slotHold = new Uint8Array(this.MAX_REGIONS);
             }
 
             // ---- Part 1: Spatial processing (no temporal smoothing) ----
-            // Returns: [{ x, y, dist, strength, validSignal, validDistance }, ...]
+            // Returns: [{ x, y, strength, validSignal, validDistance }, ...]
             //   x: 0-1 (0 = sensor 6, 1 = sensor 0)
             //   y: relative distance (0-1, where 1 = maxDist-100; can exceed 1)
-            //   dist: raw weighted average distance in mm
             //   strength: relative signal (>0 if above calibration, <0 if below)
             //   validSignal: true if signal above calibration threshold
             //   validDistance: true if distance within calibration range
@@ -1786,7 +1915,7 @@
                         wMaxD += maxDists[i] * weights[i];
                     }
                     const x = 1.0 - (wXs / wSum) / 6.0;
-                    const dist = wDs / wSum;
+                    const dist = wDs / wSum;  // Raw distance in mm (used only for validDistance check)
                     const refMaxDist = wMaxD / wSum;
                     const y = refMaxDist > 0 ? dist / refMaxDist : 0;
                     // strength: average (signal - noiseFloor) per channel in region
@@ -1795,7 +1924,6 @@
                     rawPoints.push({
                         x,
                         y,
-                        dist,
                         strength,
                         validSignal: true,        // by construction (region = above-threshold channels)
                         validDistance: dist < refMaxDist
@@ -1806,7 +1934,7 @@
 
             // ---- Part 2: Validity check + temporal smoothing ----
             // Input: raw points from getRawPoints()
-            // Returns: [{ x, y, dist }, ...]  (smoothed, only valid points)
+            // Returns: [{ x, y }, ...]  (smoothed, only valid points)
             getFilteredPoints(rawPoints) {
                 const MR = this.MAX_REGIONS;
 
@@ -1854,21 +1982,59 @@
                         }
                     }
 
-                    // EMA smoothing
-                    const smooth = (configData.x_avg_speed !== undefined && configData.x_avg_speed !== null)
+                    // X smoothing: x_avg_speed is 0-100, percentage of OLD value to keep
+                    const x_smooth = (configData.x_avg_speed !== undefined && configData.x_avg_speed !== null)
                         ? configData.x_avg_speed / 100.0
                         : this.DEFAULT_SMOOTH;
+
+                    // Map function for Y-coordinate adaptive smoothing speed calculation
+                    const map_y_speed = (y, min_speed, max_speed) => {
+                        // Clamp Y to 0-1 range for mapping (treat >1 as 1)
+                        const clamped_y = (y > 1.0) ? 1.0 : ((y < 0.0) ? 0.0 : y);
+                        // Map Y (0-1) to speed (min_speed-max_speed)
+                        // Smaller Y (closer) = faster smoothing (higher speed value)
+                        // So we invert: y=0 -> max_speed, y=1 -> min_speed
+                        if (clamped_y >= 1.0) return min_speed;
+                        if (clamped_y <= 0.0) return max_speed;
+                        return min_speed + Math.floor((max_speed - min_speed) * clamped_y);
+                    };
 
                     for (const [ri, si] of assignments) {
                         const pt = valid[ri];
                         if (this.slotActive[si]) {
-                            this.slotX[si] = this.slotX[si] * smooth + pt.x * (1 - smooth);
-                            this.slotY[si] = this.slotY[si] * smooth + pt.y * (1 - smooth);
-                            this.slotDist[si] = this.slotDist[si] * smooth + pt.dist * (1 - smooth);
+                            // X-coordinate smoothing with x_avg_speed
+                            this.slotX[si] = this.slotX[si] * x_smooth + pt.x * (1 - x_smooth);
+                            
+                            // Y-coordinate adaptive smoothing
+                            // Calculate smoothing speed based on Y value (normalized distance)
+                            const min_speed = (configData.distance_min_avg_speed !== undefined && configData.distance_min_avg_speed !== null)
+                                ? configData.distance_min_avg_speed : 2;
+                            const max_speed = (configData.distance_max_avg_speed !== undefined && configData.distance_max_avg_speed !== null)
+                                ? configData.distance_max_avg_speed : 8;
+                            
+                            let y_avg_speed = map_y_speed(pt.y, min_speed, max_speed);
+                            
+                            // Reset to min speed if Y changed too much (sudden movement)
+                            const y_change = Math.abs(pt.y - this.slotY[si]);
+                            const reset_threshold = (configData.distance_avg_reset_threshold !== undefined && configData.distance_avg_reset_threshold !== null)
+                                ? configData.distance_avg_reset_threshold / 100.0
+                                : 100 / 100.0;
+                            if (y_change > reset_threshold) {
+                                y_avg_speed = min_speed;
+                            }
+                            
+                            // Initialize averaged Y if not set
+                            if (this.slotY[si] === 0.0 || isNaN(this.slotY[si])) {
+                                this.slotY[si] = pt.y;
+                            } else {
+                                // Adaptive averaging: closer (smaller Y) = faster smoothing
+                                this.slotY[si] = this.slotY[si] * y_avg_speed / 100.0 +
+                                                 pt.y * (100.0 - y_avg_speed) / 100.0;
+                            }
                         } else {
+                            // Initialize directly (no smoothing ramp)
                             this.slotX[si] = pt.x;
                             this.slotY[si] = pt.y;
-                            this.slotDist[si] = pt.dist;
                         }
                         this.slotActive[si] = 1;
                         this.slotHold[si] = this.HOLD_FRAMES;
@@ -1892,7 +2058,7 @@
                 const points = [];
                 for (let si = 0; si < MR; si++) {
                     if (this.slotActive[si]) {
-                        points.push({ x: this.slotX[si], y: this.slotY[si], dist: this.slotDist[si] });
+                        points.push({ x: this.slotX[si], y: this.slotY[si] });
                     }
                 }
                 return points;
@@ -1925,10 +2091,17 @@
             }
         }
 
-        function recordSample(signal, distance, points) {
+        function recordSample(signal, distance, scriptPoints, devicePoints) {
             if (!recording) return;
             const t = Math.round(performance.now() - recordStartTime);
-            recordData.push(JSON.stringify({ t, in: { s: signal, d: distance }, out: points }));
+            recordData.push(JSON.stringify({ 
+                t, 
+                in: { s: signal, d: distance }, 
+                out: {
+                    script: scriptPoints,  // Points calculated by JavaScript
+                    device: devicePoints  // Points calculated on device
+                }
+            }));
         }
 
         function recordEvent(obj) {
@@ -2018,173 +2191,175 @@
             const canvas = document.getElementById('gestureCanvas');
             if (!canvas) return;
             const ctx = canvas.getContext('2d');
+            const S = sectorForCanvas(canvas);
 
-            // ---- Processed points from device (yellow) ----
-            // These are the points displayed on device screen (coordinates 0-1, y can be >1)
-            for (const pt of devicePoints) {
-                const cx = pt.x * canvas.width;
-                // y is relative (0-1, can be >1 if distance > calibration)
-                // Canvas Y: 0 at top, max_distance at bottom, so y=0 maps to bottom, y=1 maps to top
-                // Use pt.y directly as it's already calculated relative value
-                const cy = Math.max(0, canvas.height * (1 - pt.y));
-
+            // Helper: draw a dot with glow + crosshair at logical (lx, ly)
+            function drawDot(lx, ly, color, glowColor) {
+                const p = logicalToCanvas(lx, ly, S);
                 // Outer glow
                 ctx.beginPath();
-                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(255, 255, 68, 0.25)';
+                ctx.arc(p.x, p.y, 12, 0, Math.PI * 2);
+                ctx.fillStyle = glowColor;
                 ctx.fill();
-
                 // Inner dot
                 ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-                ctx.fillStyle = '#ffff44';
+                ctx.arc(p.x, p.y, 5, 0, Math.PI * 2);
+                ctx.fillStyle = color;
                 ctx.fill();
-
-                // Crosshair
-                ctx.strokeStyle = 'rgba(255, 255, 68, 0.6)';
+                // Crosshair (hex color + alpha)
+                ctx.strokeStyle = color + '99';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(cx - 15, cy);
-                ctx.lineTo(cx + 15, cy);
-                ctx.moveTo(cx, cy - 15);
-                ctx.lineTo(cx, cy + 15);
+                ctx.moveTo(p.x - 15, p.y);
+                ctx.lineTo(p.x + 15, p.y);
+                ctx.moveTo(p.x, p.y - 15);
+                ctx.lineTo(p.x, p.y + 15);
                 ctx.stroke();
+            }
+
+            // ---- Processed points from device (yellow) ----
+            for (const pt of devicePoints) {
+                drawDot(pt.x, pt.y, '#ffff44', 'rgba(255, 255, 68, 0.25)');
             }
 
             // ---- Filtered points from JavaScript processing (green) ----
             for (const pt of filteredPoints) {
-                const cx = pt.x * canvas.width;
-                // y is relative (0-1), convert to canvas coordinates
-                // Canvas Y: 0 at top, 700mm at bottom, so y=0 maps to bottom, y=1 maps to top
-                const cy = Math.max(0, canvas.height * (1 - pt.y));
+                drawDot(pt.x, pt.y, '#44ff44', 'rgba(68, 255, 68, 0.25)');
+            }
 
-                // Outer glow
-                ctx.beginPath();
-                ctx.arc(cx, cy, 12, 0, Math.PI * 2);
-                ctx.fillStyle = 'rgba(68, 255, 68, 0.25)';
+            // ---- Device gesture bounds preview (during creation mode) ----
+            if (isCreatingGesture && deviceGestureBounds) {
+                const b = deviceGestureBounds;
+
+                // Draw sector-shaped preview
+                sectorRectPath(ctx, S, b.xMin, b.yMin, b.xMax, b.yMax);
+                ctx.fillStyle = 'rgba(255, 200, 50, 0.2)';
                 ctx.fill();
 
-                // Inner dot
-                ctx.beginPath();
-                ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-                ctx.fillStyle = '#44ff44';
-                ctx.fill();
-
-                // Crosshair
-                ctx.strokeStyle = 'rgba(68, 255, 68, 0.6)';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(cx - 15, cy);
-                ctx.lineTo(cx + 15, cy);
-                ctx.moveTo(cx, cy - 15);
-                ctx.lineTo(cx, cy + 15);
+                sectorRectPath(ctx, S, b.xMin, b.yMin, b.xMax, b.yMax);
+                ctx.strokeStyle = '#ffcc33';
+                ctx.lineWidth = 2;
+                ctx.setLineDash([6, 4]);
                 ctx.stroke();
+                ctx.setLineDash([]);
             }
         }
 
-        // Draw gestures on canvas
+        // Draw gestures on canvas (ring-sector view)
         function drawGestures(presetName) {
             if (!presetName || !presetsData[presetName]) return;
 
             const canvas = document.getElementById('gestureCanvas');
             const ctx = canvas.getContext('2d');
             const preset = presetsData[presetName];
+            const S = sectorForCanvas(canvas);
 
             // Clear canvas
             ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-            // Draw background
-            ctx.fillStyle = '#0a0a0a';
+            // Draw dark background
+            ctx.fillStyle = '#000000';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw grid
+            // Draw filled sector area
+            ctx.save();
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.fillStyle = '#0a0a0a';
+            ctx.fill();
+
+            // Clip subsequent drawing to the sector
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.clip();
+
+            // Draw grid — radial lines (constant x)
             ctx.strokeStyle = '#333333';
             ctx.lineWidth = 1;
-            
-            // Vertical lines (X axis: 0 to 1)
             for (let i = 0; i <= 7; i++) {
-                const x = (canvas.width / 7) * i;
+                const lx = i / 7;
+                const p0 = logicalToCanvas(lx, 0, S);
+                const p1 = logicalToCanvas(lx, 1, S);
                 ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
-                ctx.stroke();
-            }
-            
-            // Horizontal lines (Y axis: 0 to 700)
-            for (let i = 0; i <= 7; i++) {
-                const y = canvas.height - (canvas.height / 700) * i * 100;
-                ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(p1.x, p1.y);
                 ctx.stroke();
             }
 
-            // Draw axis labels
+            // Draw grid — concentric arcs (constant y)
+            for (let i = 0; i <= 7; i++) {
+                const ly = i / 7;
+                const r = S.innerR + ly * (S.outerR - S.innerR);
+                ctx.beginPath();
+                ctx.arc(S.cx, S.cy, r, S.startAngle, S.endAngle, false);
+                ctx.stroke();
+            }
+
+            ctx.restore(); // remove clip
+
+            // Draw sector outline
+            ctx.save();
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw axis labels along inner arc
             ctx.fillStyle = '#e0e0e0';
-            ctx.font = '12px sans-serif';
-            
-            // X axis labels
-            ctx.fillText('X: 0.0', 5, canvas.height - 5);
-            ctx.fillText('1.0', canvas.width - 25, canvas.height - 5);
-            
-            // Y axis labels
-            ctx.fillText('Y: 0', 5, canvas.height - 15);
-            for (let i = 1; i <= 7; i++) {
-                const y = canvas.height - (canvas.height / 700) * i * 100;
-                ctx.fillText(`${i * 100}`, 5, y + 5);
+            ctx.font = '11px sans-serif';
+            for (let i = 0; i <= 7; i++) {
+                const ly = i / 7;
+                const p = logicalToCanvas(0.0, ly, S);
+                // label to the left of the sector
+                ctx.fillText(`${(ly).toFixed(1)}`, p.x - 28, p.y + 4);
+            }
+            // X labels along inner arc
+            for (let i = 0; i <= 7; i++) {
+                const lx = i / 7;
+                const p = logicalToCanvas(lx, -0.03, S);
+                ctx.fillText(`${lx.toFixed(1)}`, p.x - 8, p.y + 4);
             }
 
-            // Draw gestures
+            // Draw gestures as arc segments
             if (preset.gestures && Array.isArray(preset.gestures)) {
                 preset.gestures.forEach((gesture, index) => {
                     if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
                         const [active, xMin, yMin, xMax, yMax] = gesture.position;
-                        
                         if (!active) return;
-
-                        // Convert coordinates (Y axis is inverted)
-                        const x1 = xMin * canvas.width;
-                        const x2 = xMax * canvas.width;
-                        const y1 = canvas.height - (yMax / 700 * canvas.height);
-                        const y2 = canvas.height - (yMin / 700 * canvas.height);
-
-                        const width = x2 - x1;
-                        const height = y2 - y1;
 
                         const isSelected = index === currentGestureIndex;
                         const hue = index * 360 / preset.gestures.length;
 
-                        // Draw rectangle with semi-transparent fill
-                        ctx.fillStyle = isSelected 
-                            ? `hsla(${hue}, 70%, 60%, 0.6)` 
+                        // Fill arc segment
+                        sectorRectPath(ctx, S, xMin, yMin, xMax, yMax);
+                        ctx.fillStyle = isSelected
+                            ? `hsla(${hue}, 70%, 60%, 0.6)`
                             : `hsla(${hue}, 10%, 50%, 0.15)`;
-                        ctx.fillRect(x1, y1, width, height);
+                        ctx.fill();
 
-                        // Draw border
-                        ctx.strokeStyle = isSelected 
-                            ? `hsla(${hue}, 70%, 40%, 1)` 
+                        // Stroke arc segment
+                        sectorRectPath(ctx, S, xMin, yMin, xMax, yMax);
+                        ctx.strokeStyle = isSelected
+                            ? `hsla(${hue}, 70%, 40%, 1)`
                             : `hsla(${hue}, 10%, 40%, 0.4)`;
                         ctx.lineWidth = isSelected ? 3 : 1;
-                        ctx.strokeRect(x1, y1, width, height);
+                        ctx.stroke();
 
-                        // Draw label
+                        // Label near the inner-left corner of the zone
+                        const pLabel = logicalToCanvas(xMin + 0.01, yMin + 0.02, S);
                         ctx.fillStyle = isSelected ? '#ffffff' : '#999';
                         ctx.font = isSelected ? 'bold 16px sans-serif' : '12px sans-serif';
-                        ctx.fillText(`G${index + 1}`, x1 + 5, y1 + 20);
+                        ctx.fillText(`G${index + 1}`, pLabel.x, pLabel.y);
 
-                        // Draw coordinates for selected gesture
+                        // Coordinates for selected gesture
                         if (isSelected) {
                             ctx.font = '11px monospace';
                             ctx.fillStyle = '#ffffff';
-                            
-                            // Bottom left corner - start coordinates (x_min, y_min)
-                            const startCoords = `${xMin.toFixed(2)}, ${yMin.toFixed(0)}`;
-                            ctx.fillText(startCoords, x1 + 5, y2 - 5);
-                            
-                            // Top right corner - end coordinates (x_max, y_max)
-                            const endCoords = `${xMax.toFixed(2)}, ${yMax.toFixed(0)}`;
-                            const endCoordsWidth = ctx.measureText(endCoords).width;
-                            ctx.fillText(endCoords, x2 - endCoordsWidth - 5, y1 + 15);
+                            const pBL = logicalToCanvas(xMin + 0.01, yMin + 0.06, S);
+                            ctx.fillText(`${xMin.toFixed(2)}, ${yMin.toFixed(3)}`, pBL.x, pBL.y);
+                            const pTR = logicalToCanvas(xMax - 0.01, yMax - 0.01, S);
+                            const endCoords = `${xMax.toFixed(2)}, ${yMax.toFixed(3)}`;
+                            const ew = ctx.measureText(endCoords).width;
+                            ctx.fillText(endCoords, pTR.x - ew, pTR.y);
                         }
                     }
                 });
@@ -2241,6 +2416,11 @@
             // Config fields change handlers
             document.getElementById('defaultPreset').addEventListener('change', (e) => {
                 configData.preset = e.target.value;
+                markDirty('config');
+            });
+
+            document.getElementById('pointType').addEventListener('change', (e) => {
+                configData.point_type = e.target.value;
                 markDirty('config');
             });
 
@@ -2438,30 +2618,22 @@
             }
         }
 
-        // Check if point is inside any gesture
-        function getGestureAtPoint(x, y) {
+        // Check if point (canvas pixels) is inside any gesture (sector geometry)
+        function getGestureAtPoint(px, py) {
             if (!currentPresetName || !presetsData[currentPresetName]) return -1;
 
             const canvas = document.getElementById('gestureCanvas');
+            const S = sectorForCanvas(canvas);
+            const L = canvasToLogical(px, py, S);
             const preset = presetsData[currentPresetName];
             if (!preset.gestures || !Array.isArray(preset.gestures)) return -1;
 
-            // Check each gesture to see if point is inside (reverse order for top-most)
             for (let i = preset.gestures.length - 1; i >= 0; i--) {
                 const gesture = preset.gestures[i];
                 if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
                     const [active, xMin, yMin, xMax, yMax] = gesture.position;
-                    
                     if (!active) continue;
-
-                    // Convert gesture coordinates to canvas coordinates
-                    const x1 = xMin * canvas.width;
-                    const x2 = xMax * canvas.width;
-                    const y1 = canvas.height - (yMax / 700 * canvas.height);
-                    const y2 = canvas.height - (yMin / 700 * canvas.height);
-
-                    // Check if point is within this gesture's bounds
-                    if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
+                    if (L.x >= xMin && L.x <= xMax && L.y >= yMin && L.y <= yMax) {
                         return i;
                     }
                 }
@@ -2469,11 +2641,14 @@
             return -1;
         }
 
-        // Get edge near point for selected gesture
-        function getEdgeNearPoint(x, y, tolerance = 10) {
+        // Get edge near point for selected gesture (sector geometry)
+        function getEdgeNearPoint(px, py, tolerance) {
+            tolerance = tolerance || 0.02; // logical-space tolerance
             if (!currentPresetName || !presetsData[currentPresetName]) return null;
-            
+
             const canvas = document.getElementById('gestureCanvas');
+            const S = sectorForCanvas(canvas);
+            const L = canvasToLogical(px, py, S);
             const preset = presetsData[currentPresetName];
             if (!preset.gestures || !Array.isArray(preset.gestures)) return null;
 
@@ -2483,17 +2658,13 @@
             const [active, xMin, yMin, xMax, yMax] = gesture.position;
             if (!active) return null;
 
-            // Convert gesture coordinates to canvas coordinates
-            const x1 = xMin * canvas.width;
-            const x2 = xMax * canvas.width;
-            const y1 = canvas.height - (yMax / 700 * canvas.height);
-            const y2 = canvas.height - (yMin / 700 * canvas.height);
+            const insideX = L.x >= xMin - tolerance && L.x <= xMax + tolerance;
+            const insideY = L.y >= yMin - tolerance && L.y <= yMax + tolerance;
 
-            // Check proximity to edges
-            const nearLeft = Math.abs(x - x1) < tolerance && y >= y1 - tolerance && y <= y2 + tolerance;
-            const nearRight = Math.abs(x - x2) < tolerance && y >= y1 - tolerance && y <= y2 + tolerance;
-            const nearTop = Math.abs(y - y1) < tolerance && x >= x1 - tolerance && x <= x2 + tolerance;
-            const nearBottom = Math.abs(y - y2) < tolerance && x >= x1 - tolerance && x <= x2 + tolerance;
+            const nearLeft   = Math.abs(L.x - xMin) < tolerance && insideY;
+            const nearRight  = Math.abs(L.x - xMax) < tolerance && insideY;
+            const nearTop    = Math.abs(L.y - yMax) < tolerance && insideX;
+            const nearBottom = Math.abs(L.y - yMin) < tolerance && insideX;
 
             if (nearLeft) return 'left';
             if (nearRight) return 'right';
@@ -2503,49 +2674,40 @@
             return null;
         }
 
-        // Handle canvas mouse move
+        // Handle canvas mouse move (sector geometry)
         function handleCanvasMouseMove(event) {
             const canvas = document.getElementById('gestureCanvas');
             const rect = canvas.getBoundingClientRect();
-            
-            // Get mouse coordinates relative to canvas
+
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            const x = (event.clientX - rect.left) * scaleX;
-            const y = (event.clientY - rect.top) * scaleY;
+            const px = (event.clientX - rect.left) * scaleX;
+            const py = (event.clientY - rect.top) * scaleY;
 
             // If creating gesture and dragging, draw preview
             if (isCreatingGesture && isDragging && newGestureStart) {
-                drawGestureCreationPreview(newGestureStart.x, newGestureStart.y, x, y);
+                drawGestureCreationPreview(newGestureStart.x, newGestureStart.y, px, py);
                 return;
             }
 
             if (isDragging && dragEdge) {
-                // Update gesture boundary or move gesture
                 if (dragEdge === 'move') {
-                    moveGesture(x, y);
+                    moveGesture(px, py);
                 } else {
-                    updateGestureBoundary(x, y);
+                    updateGestureBoundary(px, py);
                 }
                 drawGestures(currentPresetName);
                 return;
             }
 
-            // Don't change cursor in creation mode
-            if (isCreatingGesture) {
-                return;
-            }
+            if (isCreatingGesture) return;
 
-            // Check if near edge of selected gesture
-            const edge = getEdgeNearPoint(x, y);
+            const edge = getEdgeNearPoint(px, py);
             if (edge) {
-                if (edge === 'left' || edge === 'right') {
-                    canvas.style.cursor = 'ew-resize';
-                } else {
-                    canvas.style.cursor = 'ns-resize';
-                }
+                // In sector geometry both edge types use a generic resize cursor
+                canvas.style.cursor = (edge === 'left' || edge === 'right') ? 'ew-resize' : 'ns-resize';
             } else {
-                const gestureIndex = getGestureAtPoint(x, y);
+                const gestureIndex = getGestureAtPoint(px, py);
                 if (gestureIndex === currentGestureIndex) {
                     canvas.style.cursor = 'move';
                 } else if (gestureIndex !== -1) {
@@ -2556,83 +2718,81 @@
             }
         }
 
-        // Draw preview rectangle while creating gesture
-        function drawGestureCreationPreview(x1, y1, x2, y2) {
-            // Redraw existing gestures
+        // Draw preview arc-segment while creating gesture
+        function drawGestureCreationPreview(px1, py1, px2, py2) {
             drawGestures(currentPresetName);
-            
+
             const canvas = document.getElementById('gestureCanvas');
             const ctx = canvas.getContext('2d');
-            
-            // Draw preview rectangle
-            const x = Math.min(x1, x2);
-            const y = Math.min(y1, y2);
-            const width = Math.abs(x2 - x1);
-            const height = Math.abs(y2 - y1);
-            
-            // Semi-transparent fill
+            const S = sectorForCanvas(canvas);
+
+            // Convert both points to logical coordinates
+            const L1 = canvasToLogical(px1, py1, S);
+            const L2 = canvasToLogical(px2, py2, S);
+
+            const lxMin = Math.max(0, Math.min(L1.x, L2.x));
+            const lxMax = Math.min(1, Math.max(L1.x, L2.x));
+            const lyMin = Math.max(0, Math.min(L1.y, L2.y));
+            const lyMax = Math.min(1, Math.max(L1.y, L2.y));
+
+            // Draw sector-shaped preview
+            sectorRectPath(ctx, S, lxMin, lyMin, lxMax, lyMax);
             ctx.fillStyle = 'rgba(119, 66, 255, 0.3)';
-            ctx.fillRect(x, y, width, height);
-            
-            // Dashed border
+            ctx.fill();
+
+            sectorRectPath(ctx, S, lxMin, lyMin, lxMax, lyMax);
             ctx.strokeStyle = '#7742ff';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
-            ctx.strokeRect(x, y, width, height);
+            ctx.stroke();
             ctx.setLineDash([]);
         }
 
-        // Handle canvas mouse down
+        // Handle canvas mouse down (sector geometry)
         function handleCanvasMouseDown(event) {
             const canvas = document.getElementById('gestureCanvas');
             const rect = canvas.getBoundingClientRect();
-            
+
             const scaleX = canvas.width / rect.width;
             const scaleY = canvas.height / rect.height;
-            const x = (event.clientX - rect.left) * scaleX;
-            const y = (event.clientY - rect.top) * scaleY;
+            const px = (event.clientX - rect.left) * scaleX;
+            const py = (event.clientY - rect.top) * scaleY;
 
-            // If in creation mode, start drawing
             if (isCreatingGesture) {
-                newGestureStart = { x, y };
+                newGestureStart = { x: px, y: py };
                 isDragging = true;
                 event.preventDefault();
                 return;
             }
 
-            // Check if clicking on edge
-            const edge = getEdgeNearPoint(x, y);
+            const edge = getEdgeNearPoint(px, py);
             if (edge) {
-                saveHistory(); // Save state before changing
+                saveHistory();
                 isDragging = true;
                 dragEdge = edge;
-                dragStartX = x;
-                dragStartY = y;
+                dragStartX = px;
+                dragStartY = py;
                 event.preventDefault();
                 return;
             }
 
-            // Check if clicking on gesture
-            const gestureIndex = getGestureAtPoint(x, y);
+            const gestureIndex = getGestureAtPoint(px, py);
             if (gestureIndex !== -1) {
-                // If clicking on currently selected gesture, start move
                 if (gestureIndex === currentGestureIndex && currentPresetName && presetsData[currentPresetName]) {
                     const preset = presetsData[currentPresetName];
                     const gesture = preset.gestures[currentGestureIndex];
                     if (gesture && gesture.position && gesture.position.length >= 5) {
-                        saveHistory(); // Save state before moving
+                        saveHistory();
                         isDragging = true;
                         dragEdge = 'move';
-                        dragStartX = x;
-                        dragStartY = y;
+                        dragStartX = px;
+                        dragStartY = py;
                         dragStartGestureX = gesture.position[1]; // xMin
                         dragStartGestureY = gesture.position[2]; // yMin
                         event.preventDefault();
                         return;
                     }
                 }
-                
-                // Otherwise select the gesture
                 currentGestureIndex = gestureIndex;
                 updateGestureCounter();
                 drawGestures(currentPresetName);
@@ -2641,21 +2801,20 @@
             }
         }
 
-        // Handle canvas mouse up
+        // Handle canvas mouse up (sector geometry)
         function handleCanvasMouseUp(event) {
             if (isCreatingGesture && isDragging && newGestureStart) {
                 const canvas = document.getElementById('gestureCanvas');
                 const rect = canvas.getBoundingClientRect();
-                
+
                 const scaleX = canvas.width / rect.width;
                 const scaleY = canvas.height / rect.height;
-                const x = (event.clientX - rect.left) * scaleX;
-                const y = (event.clientY - rect.top) * scaleY;
-                
-                // Complete the gesture
-                completeCreateGesture(newGestureStart.x, newGestureStart.y, x, y);
+                const px = (event.clientX - rect.left) * scaleX;
+                const py = (event.clientY - rect.top) * scaleY;
+
+                completeCreateGesture(newGestureStart.x, newGestureStart.y, px, py);
             }
-            
+
             isDragging = false;
             dragEdge = null;
         }
@@ -2671,7 +2830,8 @@
 
         // Apply snapping to a value
         function applySnapping(value, isXAxis) {
-            const snapTolerance = isXAxis ? 0.005 : 10; // 2.5% for X, 15 units for Y
+            // Both X and Y are now normalized (0-1), same as firmware
+            const snapTolerance = 0.005;
             
             if (isXAxis) {
                 // X axis snapping - screen edges and other gestures
@@ -2697,7 +2857,8 @@
                 }
             } else {
                 // Y axis snapping - screen edges and other gestures
-                const snapPoints = [0, 700];
+                // yMin and yMax are now normalized (0-1), same as firmware
+                const snapPoints = [0, 1.0];
                 
                 // Add boundaries of other gestures for Y axis
                 if (currentPresetName && presetsData[currentPresetName]) {
@@ -2722,11 +2883,12 @@
             return value;
         }
 
-        // Move entire gesture
-        function moveGesture(x, y) {
+        // Move entire gesture (sector geometry)
+        function moveGesture(px, py) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
-            
+
             const canvas = document.getElementById('gestureCanvas');
+            const S = sectorForCanvas(canvas);
             const preset = presetsData[currentPresetName];
             if (!preset.gestures || !Array.isArray(preset.gestures)) return;
 
@@ -2735,54 +2897,40 @@
 
             let [active, xMin, yMin, xMax, yMax] = gesture.position;
 
-            // Calculate the delta movement
-            const deltaX = (x - dragStartX) / canvas.width;
-            const deltaY = -(y - dragStartY) / canvas.height * 700;
+            // Convert current and start pixel positions to logical
+            const Lcur   = canvasToLogical(px, py, S);
+            const Lstart = canvasToLogical(dragStartX, dragStartY, S);
 
-            // Calculate new position
+            const deltaX = Lcur.x - Lstart.x;
+            const deltaY = Lcur.y - Lstart.y;
+
             let newXMin = dragStartGestureX + deltaX;
             let newYMin = dragStartGestureY + deltaY;
 
-            // Calculate gesture dimensions
-            const width = xMax - xMin;
+            const width  = xMax - xMin;
             const height = yMax - yMin;
 
-            // Apply snapping to the min corner
             newXMin = applySnapping(newXMin, true);
             newYMin = applySnapping(newYMin, false);
 
-            // Calculate new max values
             let newXMax = newXMin + width;
             let newYMax = newYMin + height;
 
-            // Constrain to canvas bounds
-            if (newXMin < 0) {
-                newXMin = 0;
-                newXMax = width;
-            }
-            if (newXMax > 1) {
-                newXMax = 1;
-                newXMin = 1 - width;
-            }
-            if (newYMin < 0) {
-                newYMin = 0;
-                newYMax = height;
-            }
-            if (newYMax > 700) {
-                newYMax = 700;
-                newYMin = 700 - height;
-            }
+            if (newXMin < 0) { newXMin = 0; newXMax = width; }
+            if (newXMax > 1) { newXMax = 1; newXMin = 1 - width; }
+            if (newYMin < 0) { newYMin = 0; newYMax = height; }
+            if (newYMax > 1) { newYMax = 1; newYMin = 1 - height; }
 
-            // Update the gesture position
             gesture.position = [active, newXMin, newYMin, newXMax, newYMax];
             markDirty('preset', currentPresetName);
         }
 
-        // Update gesture boundary during drag
-        function updateGestureBoundary(x, y) {
+        // Update gesture boundary during drag (sector geometry)
+        function updateGestureBoundary(px, py) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
-            
+
             const canvas = document.getElementById('gestureCanvas');
+            const S = sectorForCanvas(canvas);
             const preset = presetsData[currentPresetName];
             if (!preset.gestures || !Array.isArray(preset.gestures)) return;
 
@@ -2791,26 +2939,20 @@
 
             let [active, xMin, yMin, xMax, yMax] = gesture.position;
 
-            // Convert mouse position to gesture coordinates
-            let newX = x / canvas.width;
-            let newY = 700 - (y / canvas.height * 700);
+            const L = canvasToLogical(px, py, S);
+            let newX = applySnapping(L.x, true);
+            let newY = applySnapping(L.y, false);
 
-            // Apply snapping
-            newX = applySnapping(newX, true);
-            newY = applySnapping(newY, false);
-
-            // Update the appropriate edge
             if (dragEdge === 'left') {
                 xMin = Math.max(0, Math.min(newX, xMax - 0.01));
             } else if (dragEdge === 'right') {
                 xMax = Math.min(1, Math.max(newX, xMin + 0.01));
             } else if (dragEdge === 'top') {
-                yMax = Math.min(700, Math.max(newY, yMin + 1));
+                yMax = Math.min(1, Math.max(newY, yMin + 0.01));
             } else if (dragEdge === 'bottom') {
-                yMin = Math.max(0, Math.min(newY, yMax - 1));
+                yMin = Math.max(0, Math.min(newY, yMax - 0.01));
             }
 
-            // Update the gesture position
             gesture.position = [active, xMin, yMin, xMax, yMax];
             markDirty('preset', currentPresetName);
         }
@@ -3104,14 +3246,14 @@
                         <label for="cvSingleValueCheck${index}" style="margin: 0; font-size: 13px;">Single value</label>
                     </div>
                     <div>
-                        <label>Bottom: <span id="cvBottomValue${index}">${cvBottom.toFixed(2)}</span> V</label>
+                        <label>Bottom: <span id="cvBottomValue${index}">${(cvBottom * 2).toFixed(2)}</span> V</label>
                         <input type="range" min="-5" max="5" step="0.1" value="${cvBottom}" 
                                id="cvBottomSlider${index}"
                                oninput="handleCvSliderChange(${index}, 'bottom', parseFloat(this.value))"
                                style="width: 100%;">
                     </div>
                     <div>
-                        <label>Top: <span id="cvTopValue${index}">${cvTop.toFixed(2)}</span> V</label>
+                        <label>Top: <span id="cvTopValue${index}">${(cvTop * 2).toFixed(2)}</span> V</label>
                         <input type="range" min="-5" max="5" step="0.1" value="${cvTop}" 
                                id="cvTopSlider${index}"
                                oninput="handleCvSliderChange(${index}, 'top', parseFloat(this.value))"
@@ -3233,10 +3375,10 @@
                     topSlider.value = value;
                 }
                 if (bottomValue) {
-                    bottomValue.textContent = value.toFixed(2);
+                    bottomValue.textContent = (value * 2).toFixed(2);
                 }
                 if (topValue) {
-                    topValue.textContent = value.toFixed(2);
+                    topValue.textContent = (value * 2).toFixed(2);
                 }
             } else {
                 // Update the display for the changed property
@@ -3244,10 +3386,10 @@
                 const topValue = document.getElementById(`cvTopValue${index}`);
                 
                 if (property === 'bottom' && bottomValue) {
-                    bottomValue.textContent = value.toFixed(2);
+                    bottomValue.textContent = (value * 2).toFixed(2);
                 }
                 if (property === 'top' && topValue) {
-                    topValue.textContent = value.toFixed(2);
+                    topValue.textContent = (value * 2).toFixed(2);
                 }
             }
             
@@ -3289,10 +3431,10 @@
                     topSlider.value = currentValue;
                 }
                 if (bottomValue) {
-                    bottomValue.textContent = currentValue.toFixed(2);
+                    bottomValue.textContent = (currentValue * 2).toFixed(2);
                 }
                 if (topValue) {
-                    topValue.textContent = currentValue.toFixed(2);
+                    topValue.textContent = (currentValue * 2).toFixed(2);
                 }
             }
             
@@ -3510,6 +3652,41 @@
             showStatus('Gesture deleted', 'success');
         }
 
+        // Update bounding box from device points during gesture creation
+        function updateDeviceGestureBounds(devicePoints) {
+            const MARGIN = 0.02; // Small margin around points (normalized)
+            for (const pt of devicePoints) {
+                const px = pt.x;
+                const py = pt.y;
+                if (isNaN(px) || isNaN(py)) continue;
+                
+                if (!deviceGestureBounds) {
+                    deviceGestureBounds = {
+                        xMin: px - MARGIN,
+                        yMin: py - MARGIN,
+                        xMax: px + MARGIN,
+                        yMax: py + MARGIN
+                    };
+                } else {
+                    if (px - MARGIN < deviceGestureBounds.xMin) deviceGestureBounds.xMin = px - MARGIN;
+                    if (py - MARGIN < deviceGestureBounds.yMin) deviceGestureBounds.yMin = py - MARGIN;
+                    if (px + MARGIN > deviceGestureBounds.xMax) deviceGestureBounds.xMax = px + MARGIN;
+                    if (py + MARGIN > deviceGestureBounds.yMax) deviceGestureBounds.yMax = py + MARGIN;
+                }
+            }
+            // Clamp to 0-1
+            if (deviceGestureBounds) {
+                deviceGestureBounds.xMin = Math.max(0, deviceGestureBounds.xMin);
+                deviceGestureBounds.yMin = Math.max(0, deviceGestureBounds.yMin);
+                deviceGestureBounds.xMax = Math.min(1, deviceGestureBounds.xMax);
+                deviceGestureBounds.yMax = Math.min(1, deviceGestureBounds.yMax);
+                
+                // Show confirm button when we have bounds
+                const confirmBtn = document.getElementById('gestureConfirmBtn');
+                if (confirmBtn) confirmBtn.style.display = 'inline-block';
+            }
+        }
+
         // Start creating a new gesture
         function startCreateGesture() {
             if (!currentPresetName) {
@@ -3519,10 +3696,12 @@
 
             isCreatingGesture = true;
             newGestureStart = null;
+            deviceGestureBounds = null;
             
             // Switch UI to creation mode
             document.getElementById('gestureNavContainer').style.display = 'none';
             document.getElementById('gestureCreateContainer').style.display = 'flex';
+            document.getElementById('gestureConfirmBtn').style.display = 'none';
             
             // Change cursor
             const canvas = document.getElementById('gestureCanvas');
@@ -3531,13 +3710,33 @@
             // Redraw to show all gestures dimmed
             drawGestures(currentPresetName);
             
-            showStatus('Draw a rectangle on the canvas to create a new gesture', 'success');
+            showStatus('Draw a rectangle on the canvas or wave your hand over the device', 'success');
+        }
+
+        // Confirm gesture creation from device bounds
+        function confirmDeviceGesture() {
+            if (!deviceGestureBounds) {
+                showStatus('No device data captured yet', 'error');
+                return;
+            }
+
+            const canvas = document.getElementById('gestureCanvas');
+            const S = sectorForCanvas(canvas);
+            const b = deviceGestureBounds;
+
+            // Convert logical corners to pixel coords for completeCreateGesture
+            const p1 = logicalToCanvas(b.xMin, b.yMin, S);
+            const p2 = logicalToCanvas(b.xMax, b.yMax, S);
+
+            completeCreateGesture(p1.x, p1.y, p2.x, p2.y);
+            deviceGestureBounds = null;
         }
 
         // Cancel gesture creation
         function cancelCreateGesture() {
             isCreatingGesture = false;
             newGestureStart = null;
+            deviceGestureBounds = null;
             
             // Switch UI back to navigation mode
             document.getElementById('gestureNavContainer').style.display = 'flex';
@@ -3554,19 +3753,23 @@
         }
 
         // Complete gesture creation
-        function completeCreateGesture(x1, y1, x2, y2) {
+        function completeCreateGesture(px1, py1, px2, py2) {
             if (!currentPresetName || !presetsData[currentPresetName]) return;
-            
+
             const canvas = document.getElementById('gestureCanvas');
-            
-            // Convert to gesture coordinates
-            const xMin = Math.min(x1, x2) / canvas.width;
-            const xMax = Math.max(x1, x2) / canvas.width;
-            const yMin = Math.min(700 - y2 / canvas.height * 700, 700 - y1 / canvas.height * 700);
-            const yMax = Math.max(700 - y2 / canvas.height * 700, 700 - y1 / canvas.height * 700);
+            const S = sectorForCanvas(canvas);
+
+            // Convert pixel coords to logical coords
+            const L1 = canvasToLogical(px1, py1, S);
+            const L2 = canvasToLogical(px2, py2, S);
+
+            const xMin = Math.max(0, Math.min(L1.x, L2.x));
+            const xMax = Math.min(1, Math.max(L1.x, L2.x));
+            const yMin = Math.max(0, Math.min(L1.y, L2.y));
+            const yMax = Math.min(1, Math.max(L1.y, L2.y));
             
             // Ensure minimum size
-            if (xMax - xMin < 0.01 || yMax - yMin < 1) {
+            if (xMax - xMin < 0.01 || yMax - yMin < 0.01) {
                 showStatus('Gesture too small, please draw a larger area', 'error');
                 return;
             }
@@ -3599,6 +3802,7 @@
             // Exit creation mode
             isCreatingGesture = false;
             newGestureStart = null;
+            deviceGestureBounds = null;
             
             // Switch UI back
             document.getElementById('gestureNavContainer').style.display = 'flex';
@@ -3643,9 +3847,24 @@
 
             const oldName = currentPresetName;
 
-            // Rename the preset
+            // Rename the preset in local data
             presetsData[newName] = presetsData[oldName];
             delete presetsData[oldName];
+            
+            // Clean up old dirty flag and mark new preset as dirty (to save new file)
+            delete dirtyFlags.presets[oldName];
+            markDirty('preset', newName);
+            
+            // Delete old preset file on device
+            apiFetch(`/presets/${oldName}.yml`, { method: 'DELETE' }).then(response => {
+                if (response.ok) {
+                    console.log(`Deleted old preset file: ${oldName}.yml`);
+                } else {
+                    console.error(`Failed to delete old preset file: ${oldName}.yml`);
+                }
+            }).catch(error => {
+                console.error(`Error deleting old preset file:`, error);
+            });
             
             // Update presetNames array
             const index = presetNames.indexOf(oldName);
@@ -3656,6 +3875,7 @@
             // Update config if this was the default preset
             if (configData.preset === oldName) {
                 configData.preset = newName;
+                markDirty('config');
             }
             
             // Update current preset name
@@ -3699,6 +3919,9 @@
             // Add to presetNames array
             presetNames.push(newName);
             
+            // Mark new preset as dirty so it gets saved to device
+            markDirty('preset', newName);
+            
             // Rebuild preset selectors
             populatePresetSelectors();
             
@@ -3725,8 +3948,20 @@
 
             const deletedName = currentPresetName;
 
-            // Delete the preset
+            // Delete the preset locally
             delete presetsData[deletedName];
+            delete dirtyFlags.presets[deletedName];
+            
+            // Delete preset file on device
+            apiFetch(`/presets/${deletedName}.yml`, { method: 'DELETE' }).then(response => {
+                if (response.ok) {
+                    console.log(`Deleted preset file: ${deletedName}.yml`);
+                } else {
+                    console.error(`Failed to delete preset file: ${deletedName}.yml`);
+                }
+            }).catch(error => {
+                console.error(`Error deleting preset file:`, error);
+            });
             
             // Remove from presetNames array
             const index = presetNames.indexOf(deletedName);
@@ -3737,6 +3972,7 @@
             // Clear config if this was the default preset
             if (configData.preset === deletedName) {
                 configData.preset = '';
+                markDirty('config');
             }
             
             // Switch to first available preset or clear
@@ -3783,6 +4019,9 @@
             // Clear all gestures
             presetsData[currentPresetName] = { gestures: [] };
             
+            // Mark preset as dirty so it gets saved to device
+            markDirty('preset', currentPresetName);
+            
             // Reset gesture index
             currentGestureIndex = 0;
             updateGestureCounter();
@@ -3814,6 +4053,9 @@
             // Add to presetNames array
             presetNames.push(newName);
             
+            // Mark new preset as dirty so it gets saved to device
+            markDirty('preset', newName);
+            
             // Rebuild preset selectors
             populatePresetSelectors();
             
@@ -3844,6 +4086,7 @@
 
                 // Update configData from inputs
                 configData.preset = document.getElementById('defaultPreset').value;
+                configData.point_type = document.getElementById('pointType').value;
                 configData.color1 = document.getElementById('color1').value;
                 configData.color2 = document.getElementById('color2').value;
                 configData.wifi_ssid = document.getElementById('wifiSsid').value;
@@ -4257,24 +4500,23 @@
             }
         }
 
-        // Handle mouse move in play mode
+        // Handle mouse move in play mode (sector geometry)
         function handlePlayModeMouseMove(event) {
             if (!isPlayMode || !currentPresetName || !presetsData[currentPresetName]) return;
-
-            // When serial is connected, signal points drive play mode — ignore mouse
             if (serialConnected) return;
 
             const rect = playModeCanvas.getBoundingClientRect();
             const scaleX = playModeCanvas.width / rect.width;
             const scaleY = playModeCanvas.height / rect.height;
-            const x = (event.clientX - rect.left) * scaleX;
-            const y = (event.clientY - rect.top) * scaleY;
+            const px = (event.clientX - rect.left) * scaleX;
+            const py = (event.clientY - rect.top) * scaleY;
 
-            // Convert to gesture coordinates
-            const gestureX = x / playModeCanvas.width;
-            const gestureY = 700 - (y / playModeCanvas.height * 700);
+            const S = sectorForCanvas(playModeCanvas);
+            const L = canvasToLogical(px, py, S);
 
-            // Store mouse coordinates
+            const gestureX = L.x;
+            const gestureY = L.y;
+
             playModeMouseX = gestureX;
             playModeMouseY = gestureY;
 
@@ -4317,8 +4559,8 @@
 
             if (preset.gestures && Array.isArray(preset.gestures)) {
                 for (const pt of points) {
-                    const gx = pt.x;    // 0-1
-                    const gy = pt.dist; // distance mm (for gesture bounds matching)
+                    const gx = pt.x;    // 0-1 (normalized)
+                    const gy = pt.y;    // 0-1 (normalized, same as firmware)
 
                     preset.gestures.forEach((gesture, index) => {
                         if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
@@ -4385,112 +4627,117 @@
             }
         }
 
-        // Draw play mode canvas
+        // Draw play mode canvas (ring-sector view)
         function drawPlayMode() {
             if (!playModeCtx || !currentPresetName || !presetsData[currentPresetName]) return;
 
             const canvas = playModeCanvas;
             const ctx = playModeCtx;
             const preset = presetsData[currentPresetName];
+            const S = sectorForCanvas(canvas);
 
             // Clear canvas
-            ctx.fillStyle = '#1a1a1a';
+            ctx.fillStyle = '#0e0e0e';
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-            // Draw grid
+            // Draw filled sector background
+            ctx.save();
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fill();
+
+            // Clip to sector
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.clip();
+
+            // Grid — radial lines
             ctx.strokeStyle = '#333333';
             ctx.lineWidth = 1;
-            
-            // Vertical lines
             for (let i = 0; i <= 7; i++) {
-                const x = (canvas.width / 7) * i;
+                const lx = i / 7;
+                const p0 = logicalToCanvas(lx, 0, S);
+                const p1 = logicalToCanvas(lx, 1, S);
                 ctx.beginPath();
-                ctx.moveTo(x, 0);
-                ctx.lineTo(x, canvas.height);
+                ctx.moveTo(p0.x, p0.y);
+                ctx.lineTo(p1.x, p1.y);
                 ctx.stroke();
             }
-            
-            // Horizontal lines
+            // Grid — concentric arcs
             for (let i = 0; i <= 7; i++) {
-                const y = canvas.height - (canvas.height / 700) * i * 100;
+                const ly = i / 7;
+                const r = S.innerR + ly * (S.outerR - S.innerR);
                 ctx.beginPath();
-                ctx.moveTo(0, y);
-                ctx.lineTo(canvas.width, y);
+                ctx.arc(S.cx, S.cy, r, S.startAngle, S.endAngle, false);
                 ctx.stroke();
             }
+            ctx.restore();
 
-            // Draw axis labels
+            // Sector outline
+            sectorRectPath(ctx, S, 0, 0, 1, 1);
+            ctx.strokeStyle = '#444';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Y axis labels
             ctx.fillStyle = '#e0e0e0';
             ctx.font = '14px sans-serif';
-            
-            // Y axis labels
             for (let i = 0; i <= 7; i++) {
-                const y = canvas.height - (canvas.height / 700) * i * 100;
-                ctx.fillText(`${i * 100}`, 10, y - 5);
+                const ly = i / 7;
+                const p = logicalToCanvas(0.0, ly, S);
+                ctx.fillText(`${(ly).toFixed(1)}`, p.x - 30, p.y + 5);
             }
 
-            // Draw gestures
+            // Draw gestures as arc segments
             if (preset.gestures && Array.isArray(preset.gestures)) {
                 preset.gestures.forEach((gesture, index) => {
                     if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
                         const [active, xMin, yMin, xMax, yMax] = gesture.position;
-                        
                         if (!active) return;
-
-                        // Convert coordinates
-                        const x1 = xMin * canvas.width;
-                        const x2 = xMax * canvas.width;
-                        const y1 = canvas.height - (yMax / 700 * canvas.height);
-                        const y2 = canvas.height - (yMin / 700 * canvas.height);
-
-                        const width = x2 - x1;
-                        const height = y2 - y1;
 
                         const isActive = activePlayGestures.some(ag => ag.index === index);
                         const hue = index * 360 / preset.gestures.length;
 
-                        // Draw rectangle
+                        sectorRectPath(ctx, S, xMin, yMin, xMax, yMax);
                         if (isActive) {
                             ctx.fillStyle = `hsla(${hue}, 70%, 60%, 0.8)`;
-                            ctx.fillRect(x1, y1, width, height);
+                            ctx.fill();
+                            sectorRectPath(ctx, S, xMin, yMin, xMax, yMax);
                             ctx.strokeStyle = `hsla(${hue}, 70%, 40%, 1)`;
                             ctx.lineWidth = 4;
                         } else {
                             ctx.fillStyle = `hsla(${hue}, 50%, 50%, 0.3)`;
-                            ctx.fillRect(x1, y1, width, height);
+                            ctx.fill();
+                            sectorRectPath(ctx, S, xMin, yMin, xMax, yMax);
                             ctx.strokeStyle = `hsla(${hue}, 50%, 40%, 0.6)`;
                             ctx.lineWidth = 2;
                         }
-                        ctx.strokeRect(x1, y1, width, height);
+                        ctx.stroke();
 
-                        // Draw label
+                        // Label
+                        const pLabel = logicalToCanvas(xMin + 0.02, yMin + 0.04, S);
                         ctx.fillStyle = isActive ? '#fff' : '#aaa';
                         ctx.font = isActive ? 'bold 24px sans-serif' : 'bold 18px sans-serif';
-                        ctx.fillText(`G${index + 1}`, x1 + 10, y1 + 30);
+                        ctx.fillText(`G${index + 1}`, pLabel.x, pLabel.y);
                     }
                 });
             }
 
-            // Draw signal points (from sensor data) — filtered, green
+            // Draw signal points — filtered, green
             for (const pt of playModeSignalPoints) {
-                const cx = pt.x * canvas.width;
-                const cy = Math.max(0, canvas.height * (1 - pt.y));
+                const p = logicalToCanvas(pt.x, pt.y, S);
 
-                // Outer glow
                 ctx.beginPath();
-                ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, 20, 0, Math.PI * 2);
                 ctx.fillStyle = 'rgba(68, 255, 68, 0.3)';
                 ctx.fill();
 
-                // Inner dot
                 ctx.beginPath();
-                ctx.arc(cx, cy, 10, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, 10, 0, Math.PI * 2);
                 ctx.fillStyle = '#44ff44';
                 ctx.fill();
 
-                // White center
                 ctx.beginPath();
-                ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+                ctx.arc(p.x, p.y, 3, 0, Math.PI * 2);
                 ctx.fillStyle = '#fff';
                 ctx.fill();
             }
