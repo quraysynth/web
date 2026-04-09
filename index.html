@@ -4,48 +4,48 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Quray Configuration Editor</title>
-    <link rel="icon" type="image/png" sizes="192x192" href="/favicon.png">
-    <link rel="icon" type="image/x-icon" href="/favicon.ico">
-    <link rel="stylesheet" href="/style.css">
-    <script src="/lib/js-yaml.min.js"></script>
-    <script src="/lib/jszip.min.js"></script>
-    <script src="/helpers.js" defer></script>
+    <link rel="icon" type="image/png" sizes="192x192" href="favicon.png">
+    <link rel="icon" type="image/x-icon" href="favicon.ico">
+    <link rel="stylesheet" href="style.css">
+    <script src="lib/js-yaml.min.js"></script>
+    <script src="lib/jszip.min.js"></script>
+    <script src="helpers.js" defer></script>
     <!-- View factories (globals); mount in app.js -->
-    <script src="/view/signal-calibration.js" defer></script>
-    <script src="/view/configuration.js" defer></script>
-    <script src="/view/serial-status.js" defer></script>
-    <script src="/view/preset.js" defer></script>
-    <script src="/view/gesture.js" defer></script>
-    <script src="/view/split-gesture.js" defer></script>
-    <script src="/view/scale.js" defer></script>
-    <script src="/view/midi-events.js" defer></script>
-    <script src="/view/cv-events.js" defer></script>
-    <script src="/view/gesture-canvas.js" defer></script>
-    <script src="/transport.js" defer></script>
-    <script src="/store/initial-state.js" defer></script>
-    <script src="/store/config.js" defer></script>
-    <script src="/store/calibration.js" defer></script>
-    <script src="/store/midi.js" defer></script>
-    <script src="/store/cv.js" defer></script>
-    <script src="/store/history.js" defer></script>
-    <script src="/store/scale.js" defer></script>
-    <script src="/store/split-gesture.js" defer></script>
-    <script src="/store/load-export-navigation.js" defer></script>
-    <script src="/store.js" defer></script>
-    <script src="/app.js" defer></script>
-    <script defer src="/lib/alpine.min.js"></script>
+    <script src="view/signal-calibration.js" defer></script>
+    <script src="view/configuration.js" defer></script>
+    <script src="view/serial-status.js" defer></script>
+    <script src="view/preset.js" defer></script>
+    <script src="view/gesture.js" defer></script>
+    <script src="view/split-gesture.js" defer></script>
+    <script src="view/scale.js" defer></script>
+    <script src="view/midi-events.js" defer></script>
+    <script src="view/cv-events.js" defer></script>
+    <script src="view/gesture-canvas.js" defer></script>
+    <script src="transport.js" defer></script>
+    <script src="store/initial-state.js" defer></script>
+    <script src="store/config.js" defer></script>
+    <script src="store/calibration.js" defer></script>
+    <script src="store/midi.js" defer></script>
+    <script src="store/cv.js" defer></script>
+    <script src="store/history.js" defer></script>
+    <script src="store/scale.js" defer></script>
+    <script src="store/split-gesture.js" defer></script>
+    <script src="store/load-export-navigation.js" defer></script>
+    <script src="store.js" defer></script>
+    <script src="app.js" defer></script>
+    <script defer src="lib/alpine.min.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>
             <span>Quray Configuration Editor</span>
-            <span x-init="mount($el, '/view/serial-status.html')"></span>
+            <span x-init="mount($el, 'view/serial-status.html')"></span>
         </h1>
 
         <div class="main-layout">
             <div class="left-panel">
-                <div x-init="mount($el, '/view/signal-calibration.html')"></div>
-                <div x-init="mount($el, '/view/configuration.html')"></div>
+                <div x-init="mount($el, 'view/signal-calibration.html')"></div>
+                <div x-init="mount($el, 'view/configuration.html')"></div>
                 <div class="section" x-data>
                     <div class="button-group">
                         <button type="button" onclick="saveAll()">Save All</button>
@@ -65,16 +65,16 @@
 
             <div class="center-panel">
                 <div class="center-control-row">
-                    <div class="control-panel-slot" x-init="mount($el, '/view/preset.html')"></div>
-                    <div class="control-panel-slot" x-init="mount($el, '/view/gesture-toolbar.html')"></div>
+                    <div class="control-panel-slot" x-init="mount($el, 'view/preset.html')"></div>
+                    <div class="control-panel-slot" x-init="mount($el, 'view/gesture-toolbar.html')"></div>
                 </div>
-                <div x-init="mount($el, '/view/gesture-canvas.html')"></div>
+                <div x-init="mount($el, 'view/gesture-canvas.html')"></div>
             </div>
 
             <div class="right-panel">
-                <div x-init="mount($el, '/view/scale.html')"></div>
-                <div x-init="mount($el, '/view/midi-events.html')"></div>
-                <div x-init="mount($el, '/view/cv-events.html')"></div>
+                <div x-init="mount($el, 'view/scale.html')"></div>
+                <div x-init="mount($el, 'view/midi-events.html')"></div>
+                <div x-init="mount($el, 'view/cv-events.html')"></div>
             </div>
         </div>
 
@@ -85,7 +85,7 @@
             </div>
             <button type="button" class="play-mode-exit" onclick="exitPlayMode()">✕ Exit (ESC)</button>
         </div>
-        <div x-init="mount($el, '/view/split-gesture.html')"></div>
+        <div x-init="mount($el, 'view/split-gesture.html')"></div>
     </div>
 </body>
 </html>
