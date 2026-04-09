@@ -1,0 +1,171 @@
+<div class="section" x-data="midiEventsView()">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">MIDI Events</h2>
+        <button type="button" class="nav-button btn-create" title="Add MIDI event" x-on:click="addMidiEvent()"
+            x-bind:disabled="!midiEditingEnabled">+</button>
+    </div>
+    <fieldset
+        class="midi-cv-fieldset"
+        x-bind:disabled="!midiEditingEnabled"
+        style="border: none; margin: 0; padding: 0; min-width: 0;"
+    >
+    <div id="midiEventsList">
+        <template x-for="(event, index) in midiEvents" x-bind:key="'midi-' + index">
+            <div class="midi-event">
+                <div class="midi-event-controls midi-event-grid">
+                    <label class="midi-event-grid-label">Type</label>
+                    <label class="midi-event-grid-label">Channel</label>
+                    <span class="midi-event-grid-cell-spacer" aria-hidden="true"></span>
+
+                    <div>
+                        <select
+                            x-bind:value="typeSelectValue(event)"
+                            x-on:change="onTypeChange(index, $event.target.value)"
+                        >
+                            <option value="note">Note</option>
+                            <option value="cc">CC</option>
+                        </select>
+                    </div>
+                    <div>
+                        <select
+                            x-bind:value="event.channel"
+                            x-on:change="onChannelChange(index, $event)"
+                        >
+                            <template x-for="ch in channels16" x-bind:key="ch">
+                                <option x-bind:value="ch" x-text="ch"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <span class="midi-event-grid-cell-spacer" aria-hidden="true"></span>
+
+                    <template x-if="event.note !== undefined">
+                        <div style="display: contents;">
+                            <label class="midi-event-grid-label">Note</label>
+                            <label class="midi-event-grid-label">Octave</label>
+                            <span class="midi-event-grid-cell-spacer" aria-hidden="true"></span>
+
+                            <div>
+                                <select
+                                    x-bind:value="noteSelectValue(event)"
+                                    x-on:change="onNoteNameChange(index, $event.target.value)"
+                                >
+                                    <template x-for="opt in scaleDegreeOptions" x-bind:key="'sd-' + opt.degreeIndex">
+                                        <option x-bind:value="'deg:' + opt.degreeIndex" x-text="opt.label"></option>
+                                    </template>
+                                    <template x-if="scaleDegreeOptions.length">
+                                        <option disabled value="">────────</option>
+                                    </template>
+                                    <template x-for="(name, ni) in midiNoteNames" x-bind:key="name">
+                                        <option x-bind:value="'pc:' + ni" x-text="name"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <input
+                                    type="number"
+                                    x-bind:min="midiOctaveMin"
+                                    x-bind:max="midiOctaveMax"
+                                    x-bind:value="eventOctaveDisplay(event)"
+                                    x-on:change="onNoteOctaveChange(index, $event.target.value)"
+                                />
+                            </div>
+                            <button
+                                type="button"
+                                class="nav-button btn-delete"
+                                x-on:click="deleteMidiEvent(index)"
+                                title="Delete event"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </template>
+
+                    <template x-if="event.cc !== undefined">
+                        <div style="display: contents;">
+                            <label class="midi-event-grid-label">CC</label>
+                            <label class="midi-event-grid-label">Axis</label>
+                            <span class="midi-event-grid-cell-spacer" aria-hidden="true"></span>
+
+                            <div>
+                                <input
+                                    type="number"
+                                    min="0"
+                                    max="127"
+                                    x-bind:value="event.cc"
+                                    x-on:input="onCcNumberChange(index, $event.target.value)"
+                                />
+                            </div>
+                            <div>
+                                <select
+                                    x-bind:value="event.axis"
+                                    x-on:change="onAxisChange(index, $event.target.value)"
+                                >
+                                    <option value="x">X</option>
+                                    <option value="y">Y</option>
+                                </select>
+                            </div>
+                            <button
+                                type="button"
+                                class="nav-button btn-delete"
+                                x-on:click="deleteMidiEvent(index)"
+                                title="Delete event"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    </template>
+
+                    <template x-if="event.cc !== undefined">
+                        <div class="midi-event-grid-span">
+                            <div
+                                style="display: flex; align-items: center; gap: 8px; margin-top: 4px;"
+                            >
+                                <input
+                                    type="checkbox"
+                                    x-bind:id="'singleValueCheck' + index"
+                                    x-bind:checked="event.singleValue === true"
+                                    x-on:change="onSingleValueChange(index, $event.target.checked)"
+                                    style="width: auto; margin: 0;"
+                                />
+                                <label
+                                    x-bind:for="'singleValueCheck' + index"
+                                    style="margin: 0; font-size: 13px;"
+                                >Single value</label>
+                            </div>
+                            <div class="midi-event-cc-sliders-row">
+                                <div>
+                                    <label>Bottom: <span x-text="event.bottom !== undefined ? event.bottom : 0"></span></label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="127"
+                                        x-bind:value="event.bottom !== undefined ? event.bottom : 0"
+                                        x-on:input="onCcSlider(index, 'bottom', $event.target.value)"
+                                        style="width: 100%;"
+                                    />
+                                </div>
+                                <div>
+                                    <label>Top: <span x-text="event.top !== undefined ? event.top : 127"></span></label>
+                                    <input
+                                        type="range"
+                                        min="0"
+                                        max="127"
+                                        x-bind:value="event.top !== undefined ? event.top : 127"
+                                        x-on:input="onCcSlider(index, 'top', $event.target.value)"
+                                        style="width: 100%;"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+            </div>
+        </template>
+        <p
+            x-show="midiEmptyHint()"
+            x-text="midiEmptyHint()"
+            style="color: #999; font-size: 13px;"
+        ></p>
+    </div>
+    </fieldset>
+</div>

@@ -1,3 +1,7 @@
+scale:
+  root: C
+  octave: 0
+  scale: major
 gestures:
   - midi:
       - channel: 3

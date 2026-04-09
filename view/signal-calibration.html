@@ -1,0 +1,64 @@
+<div class="section" x-data="signalCalibrationView()">
+    <h2>Calibration</h2>
+    <div class="calib-grid" id="calibGrid">
+        <div style="margin-bottom: 20px; padding: 10px; border: 1px solid #333333; border-radius: 4px; background-color: #0a0a0a;">
+            <label style="color: #e0e0e0; font-size: 12px; margin-right: 10px;">Manual max distance</label>
+            <span style="color: #fff; font-size: 12px; font-weight: bold; margin-right: 10px;" x-text="calib.manual_max_distance"></span>
+            <input
+                type="range"
+                min="100"
+                max="1200"
+                x-bind:value="calib.manual_max_distance"
+                x-on:input="onManualMaxInput($event)"
+                style="width: 200px; vertical-align: middle;"
+            />
+        </div>
+
+        <table class="calib-table">
+            <thead>
+                <tr>
+                    <th>Sensor</th>
+                    <th>Min signal</th>
+                    <th>Current signal</th>
+                    <th>Max distance</th>
+                    <th>Current distance</th>
+                </tr>
+            </thead>
+            <tbody>
+                <template x-for="i in sensorIndices" x-bind:key="i">
+                    <tr>
+                        <td x-text="'S' + i"></td>
+                        <td>
+                            <input
+                                type="number"
+                                min="0"
+                                x-bind:value="calib.min_signal[i]"
+                                x-on:input="onMinSignalInput(i, $event.target.value)"
+                            />
+                        </td>
+                        <td>
+                            <div class="cell-value" x-text="sensorData.signal_level[i] ?? 0"></div>
+                            <div class="signal-progress">
+                                <div
+                                    class="signal-progress-fill"
+                                    x-bind:style="'width: ' + signalBarPct(i) + '%'"
+                                ></div>
+                            </div>
+                        </td>
+                        <td>
+                            <input
+                                type="number"
+                                min="0"
+                                x-bind:value="calib.max_distance[i]"
+                                x-on:input="onMaxDistanceInput(i, $event.target.value)"
+                            />
+                        </td>
+                        <td>
+                            <div class="cell-value" x-text="sensorData.distance[i] ?? 0"></div>
+                        </td>
+                    </tr>
+                </template>
+            </tbody>
+        </table>
+    </div>
+</div>

@@ -1,0 +1,191 @@
+<div class="section" x-data="configurationView()">
+    <h2>Configuration</h2>
+
+    <div class="input-group">
+        <label for="defaultPreset">Default Preset</label>
+        <select
+            id="defaultPreset"
+            x-bind:value="config.preset"
+            x-on:change="onConfigField('preset', $event.target.value)"
+        >
+            <template x-for="opt in configPresetOptions" x-bind:key="opt.value + '-' + opt.label">
+                <option x-bind:value="opt.value" x-text="opt.label"></option>
+            </template>
+        </select>
+    </div>
+
+    <div class="input-group" style="margin-top: 15px;">
+        <label for="pointType">Point Type</label>
+        <select
+            id="pointType"
+            x-bind:value="config.point_type"
+            x-on:change="onConfigField('point_type', $event.target.value)"
+        >
+            <template x-for="opt in pointTypeOptions" x-bind:key="opt.value">
+                <option x-bind:value="opt.value" x-text="opt.label"></option>
+            </template>
+        </select>
+    </div>
+
+    <div style="margin-top: 15px;">
+        <div
+            class="gradient-preview"
+            id="gradientPreview"
+            x-bind:style="{ background: 'linear-gradient(to right, ' + config.color1 + ', ' + config.color2 + ')' }"
+        ></div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <input
+                type="color"
+                id="color1Picker"
+                x-bind:value="config.color1"
+                x-on:input="onConfigField('color1', $event.target.value)"
+                style="flex: 1; height: 40px; border: 1px solid #333333; border-radius: 4px; cursor: pointer;"
+            />
+            <input
+                type="color"
+                id="color2Picker"
+                x-bind:value="config.color2"
+                x-on:input="onConfigField('color2', $event.target.value)"
+                style="flex: 1; height: 40px; border: 1px solid #333333; border-radius: 4px; cursor: pointer;"
+            />
+        </div>
+        <div style="margin-top: 5px;">
+            <input
+                type="text"
+                id="color1"
+                placeholder="#FE3A86"
+                x-bind:value="config.color1"
+                x-on:input="onConfigField('color1', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; margin-bottom: 5px; background: #0a0a0a; color: #ffffff;"
+            />
+            <div style="font-size: 12px; color: #888; margin-bottom: 5px;">
+                Device value: <span id="color1Value" style="color: #fff; font-family: monospace;" x-text="deviceColor1Hex()"></span>
+            </div>
+            <input
+                type="text"
+                id="color2"
+                placeholder="#7742ff"
+                x-bind:value="config.color2"
+                x-on:input="onConfigField('color2', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; margin-bottom: 5px; background: #0a0a0a; color: #ffffff;"
+            />
+            <div style="font-size: 12px; color: #888;">
+                Device value: <span id="color2Value" style="color: #fff; font-family: monospace;" x-text="deviceColor2Hex()"></span>
+            </div>
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">WiFi Client</h3>
+        <div class="input-group">
+            <label for="wifiSsid">WiFi SSID</label>
+            <input
+                type="text"
+                id="wifiSsid"
+                placeholder="Network name"
+                x-bind:value="config.wifi_ssid"
+                x-on:input="onConfigField('wifi_ssid', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="wifiPassword">WiFi Password</label>
+            <input
+                type="password"
+                id="wifiPassword"
+                placeholder="Password"
+                x-bind:value="config.wifi_password"
+                x-on:input="onConfigField('wifi_password', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">WiFi Access Point</h3>
+        <div class="input-group">
+            <label for="wifiApSsid">AP SSID</label>
+            <input
+                type="text"
+                id="wifiApSsid"
+                placeholder="AP name"
+                x-bind:value="config.wifi_ap_ssid"
+                x-on:input="onConfigField('wifi_ap_ssid', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="wifiApPassword">AP Password</label>
+            <input
+                type="password"
+                id="wifiApPassword"
+                placeholder="AP password"
+                x-bind:value="config.wifi_ap_password"
+                x-on:input="onConfigField('wifi_ap_password', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <h3 style="font-size: 14px; color: #e0e0e0; margin-bottom: 10px; border-bottom: 1px solid #333333; padding-bottom: 5px;">Distance Averaging Speed</h3>
+        <div class="input-group">
+            <label for="distanceMinAvgSpeed">Min Avg Speed (0-10)</label>
+            <input
+                type="number"
+                id="distanceMinAvgSpeed"
+                min="0"
+                max="10"
+                x-bind:value="config.distance_min_avg_speed"
+                x-on:input="onConfigNumber('distance_min_avg_speed', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="distanceMaxAvgSpeed">Max Avg Speed (0-10)</label>
+            <input
+                type="number"
+                id="distanceMaxAvgSpeed"
+                min="0"
+                max="10"
+                x-bind:value="config.distance_max_avg_speed"
+                x-on:input="onConfigNumber('distance_max_avg_speed', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="distanceAvgResetThreshold">Reset Threshold (mm)</label>
+            <input
+                type="number"
+                id="distanceAvgResetThreshold"
+                min="0"
+                x-bind:value="config.distance_avg_reset_threshold"
+                x-on:input="onConfigNumber('distance_avg_reset_threshold', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="xAvgSpeed">X Avg Speed (0-100)</label>
+            <input
+                type="number"
+                id="xAvgSpeed"
+                min="0"
+                max="100"
+                x-bind:value="config.x_avg_speed"
+                x-on:input="onConfigNumber('x_avg_speed', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+        <div class="input-group" style="margin-top: 10px;">
+            <label for="validStreakThreshold">Valid Streak Threshold</label>
+            <input
+                type="number"
+                id="validStreakThreshold"
+                min="0"
+                x-bind:value="config.valid_streak_threshold"
+                x-on:input="onConfigNumber('valid_streak_threshold', $event.target.value)"
+                style="width: 100%; padding: 8px 12px; border: 1px solid #333333; border-radius: 4px; font-size: 14px; background: #0a0a0a; color: #ffffff;"
+            />
+        </div>
+    </div>
+</div>

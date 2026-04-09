@@ -1,0 +1,94 @@
+<div class="section" style="margin-top: 20px;" x-data="cvEventsView()">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+        <h2 style="margin: 0;">CV Events</h2>
+        <button type="button" class="nav-button btn-create" title="Add CV event" x-on:click="addCvEvent()"
+            x-bind:disabled="!cvEditingEnabled">+</button>
+    </div>
+    <fieldset
+        class="midi-cv-fieldset"
+        x-bind:disabled="!cvEditingEnabled"
+        style="border: none; margin: 0; padding: 0; min-width: 0;"
+    >
+    <div id="cvEventsList">
+        <template x-for="(event, index) in cvEvents" x-bind:key="'cv-' + index">
+            <div class="midi-event">
+                <div class="midi-event-controls">
+                    <div>
+                        <label>Channel</label>
+                        <select
+                            x-bind:value="event.channel"
+                            x-on:change="onChannelChange(index, $event)"
+                        >
+                            <template x-for="ch in channels4" x-bind:key="ch">
+                                <option x-bind:value="ch" x-text="ch"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Axis</label>
+                        <select
+                            x-bind:value="event.axis"
+                            x-on:change="onAxisChange(index, $event.target.value)"
+                        >
+                            <option value="x">X</option>
+                            <option value="y">Y</option>
+                        </select>
+                    </div>
+                    <div
+                        style="flex-basis: 100%; display: flex; align-items: center; gap: 8px; margin-top: 5px;"
+                    >
+                        <input
+                            type="checkbox"
+                            x-bind:id="'cvSingleValueCheck' + index"
+                            x-bind:checked="event.singleValue === true"
+                            x-on:change="onCvSingleValueChange(index, $event.target.checked)"
+                            style="width: auto; margin: 0;"
+                        />
+                        <label
+                            x-bind:for="'cvSingleValueCheck' + index"
+                            style="margin: 0; font-size: 13px;"
+                        >Single value</label>
+                    </div>
+                    <div>
+                        <label
+                            >Bottom:
+                            <span x-text="cvVoltsLabel(event.bottom !== undefined ? event.bottom : -5.0)"></span>
+                            V</label>
+                        <input
+                            type="range"
+                            min="-5"
+                            max="5"
+                            step="0.1"
+                            x-bind:value="event.bottom !== undefined ? event.bottom : -5.0"
+                            x-on:input="onCvSlider(index, 'bottom', $event.target.value)"
+                            style="width: 100%;"
+                        />
+                    </div>
+                    <div>
+                        <label
+                            >Top: <span x-text="cvVoltsLabel(event.top !== undefined ? event.top : 5.0)"></span> V</label>
+                        <input
+                            type="range"
+                            min="-5"
+                            max="5"
+                            step="0.1"
+                            x-bind:value="event.top !== undefined ? event.top : 5.0"
+                            x-on:input="onCvSlider(index, 'top', $event.target.value)"
+                            style="width: 100%;"
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        class="nav-button btn-delete"
+                        x-on:click="deleteCvEvent(index)"
+                        title="Delete event"
+                    >
+                        ✕
+                    </button>
+                </div>
+            </div>
+        </template>
+        <p x-show="cvEmptyHint()" x-text="cvEmptyHint()" style="color: #999; font-size: 13px;"></p>
+    </div>
+    </fieldset>
+</div>

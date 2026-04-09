@@ -1,0 +1,24 @@
+<div class="control-panel" x-data="gestureView()">
+    <div class="input-group">
+        <label>Gesture</label>
+
+        <div class="gesture-navigation" id="gestureNavContainer" x-show="!creating">
+            <button type="button" class="nav-button btn-navigation" x-on:click="previousGesture()">←</button>
+            <div class="gesture-counter" id="gestureCounter" x-text="counterLabel()"></div>
+            <button type="button" class="nav-button btn-navigation" x-on:click="nextGesture()">→</button>
+            <button type="button" class="nav-button btn-create" title="Create new gesture" x-on:click="startCreateGesture()">+</button>
+            <button type="button" class="nav-button btn-neutral" title="Split gesture" x-on:click="showSplit()"
+                x-bind:disabled="!exactlyOneGestureSelected">⫶</button>
+            <button type="button" class="nav-button btn-copy" title="Copy gesture (MIDI &amp; CV)" x-on:click="copyGesture()"
+                x-bind:disabled="!exactlyOneGestureSelected">⎘</button>
+            <button type="button" class="nav-button btn-delete" title="Delete selected gesture(s)" x-on:click="deleteGesture()">✕</button>
+        </div>
+
+        <div class="gesture-navigation" id="gestureCreateContainer" x-show="creating" x-cloak>
+            <div style="color: #e0e0e0; font-size: 13px;">Draw on canvas or wave hand</div>
+            <button type="button" class="nav-button btn-create" id="gestureConfirmBtn" title="Confirm device gesture"
+                x-show="showConfirm" x-on:click="confirmDeviceGesture()">✓</button>
+            <button type="button" class="nav-button btn-delete" title="Cancel" x-on:click="cancelCreateGesture()">✕</button>
+        </div>
+    </div>
+</div>

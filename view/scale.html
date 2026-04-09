@@ -1,0 +1,43 @@
+<div class="section" style="margin-bottom: 20px;" x-data="scaleView()">
+    <h2 style="margin: 0 0 10px 0;">Scale</h2>
+    <template x-if="!hasPreset">
+        <p style="color: #999; font-size: 13px;" x-text="emptyHint()"></p>
+    </template>
+    <template x-if="hasPreset">
+        <div class="midi-event scale-block">
+            <div class="midi-event-controls">
+                <div>
+                    <label>Scale</label>
+                    <select x-bind:value="scaleKindValue" x-on:change="onKindChange($event)">
+                        <option value="">—</option>
+                        <template x-for="opt in scaleKinds" x-bind:key="opt.id">
+                            <option x-bind:value="opt.id" x-text="opt.label"></option>
+                        </template>
+                    </select>
+                </div>
+                <template x-if="scaleData">
+                    <div style="display: contents;">
+                        <div>
+                            <label>Root</label>
+                            <select x-bind:value="scaleData.root" x-on:change="onRootChange($event)">
+                                <template x-for="n in rootNotes" x-bind:key="n">
+                                    <option x-bind:value="n" x-text="n"></option>
+                                </template>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Octave</label>
+                            <input
+                                type="number"
+                                min="-8"
+                                max="8"
+                                x-bind:value="scaleData.octave"
+                                x-on:change="onOctaveChange($event)"
+                            />
+                        </div>
+                    </div>
+                </template>
+            </div>
+        </div>
+    </template>
+</div>

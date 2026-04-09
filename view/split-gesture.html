@@ -1,0 +1,51 @@
+<div x-data="splitGestureView()" x-cloak
+    x-bind:style="visible
+        ? 'position: fixed; inset: 0; background: rgba(0,0,0,0.65); display: flex; align-items: center; justify-content: center; z-index: 2000;'
+        : 'display: none;'">
+    <div style="width: min(520px, 92vw); background: #141414; border: 1px solid #333; border-radius: 10px; padding: 16px;">
+        <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px;">
+            <strong style="color: #eaeaea;">Split Gesture</strong>
+            <button type="button" class="nav-button btn-delete" title="Close" x-on:click="close()">✕</button>
+        </div>
+
+        <div x-show="hasScale" style="color: #cfcfcf; font-size: 14px; margin-bottom: 14px;">
+            Split dialog placeholder. Split logic will be added later.
+        </div>
+        <div x-show="hasScale" class="split-grid">
+            <div class="input-group">
+                <label>X</label>
+                <select x-model.number="splitX">
+                    <template x-for="opt in axisOptions" x-bind:key="'x-' + opt">
+                        <option x-bind:value="opt" x-text="opt"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Y</label>
+                <select x-model.number="splitY">
+                    <template x-for="opt in axisOptions" x-bind:key="'y-' + opt">
+                        <option x-bind:value="opt" x-text="opt"></option>
+                    </template>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>Order</label>
+                <select x-model="splitOrder">
+                    <template x-for="opt in orderOptions" x-bind:key="'order-' + opt.value">
+                        <option x-bind:value="opt.value" x-text="opt.label"></option>
+                    </template>
+                </select>
+            </div>
+        </div>
+        <div x-show="!hasScale" style="color: #ffb0b0; font-size: 14px; margin-bottom: 14px;">
+            please select scale
+        </div>
+
+        <div style="display: flex; gap: 8px; justify-content: flex-end;">
+            <button type="button" class="secondary" x-on:click="close()">Close</button>
+            <button type="button" x-show="hasScale" x-on:click="split()">Split</button>
+        </div>
+    </div>
+</div>

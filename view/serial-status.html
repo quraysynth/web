@@ -1,0 +1,16 @@
+<span class="h1-actions" x-data="serialStatusView()">
+    <button type="button" class="calib-btn" id="calibBtn" x-show="showCalibrate" x-cloak
+        x-bind:class="calibButtonClass"
+        x-on:click="startCalibration()">
+        <span aria-hidden="true">🎯</span>
+        <span x-text="calibButtonLabel"></span>
+    </button>
+    <button type="button" class="record-btn" id="recordBtn" x-show="showRecord" x-cloak
+        x-on:click="toggleRecording()">
+        ⏺ Record
+    </button>
+    <button type="button" class="serial-btn" id="serialBtn" x-bind:class="{ connected: serialConnected }"
+        x-on:click="toggleSerial()"
+        x-text="serialConnected ? '⚡ Disconnect' : '⚡ Connect Serial'">
+    </button>
+</span>

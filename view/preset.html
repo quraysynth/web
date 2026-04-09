@@ -1,0 +1,27 @@
+<div class="control-panel" x-data="presetView()">
+    <div class="input-group">
+        <label for="selectedPreset">Preset</label>
+        <div style="display: flex; gap: 5px;">
+            <select
+                id="selectedPreset"
+                style="flex: 1;"
+                x-bind:value="selectedPreset"
+                x-on:change="onSelectedPresetChange($event)"
+            >
+                <template x-for="opt in presetOptions" x-bind:key="opt.value + '-' + opt.label">
+                    <option x-bind:value="opt.value" x-text="opt.label"></option>
+                </template>
+            </select>
+            <button type="button" class="nav-button btn-play" title="Play mode (fullscreen)" x-on:click="enterPlayMode()">▶</button>
+            <button type="button" class="nav-button btn-edit" title="Rename preset" x-on:click="renamePreset()">✎</button>
+            <button type="button" class="nav-button btn-copy" title="Copy preset" x-on:click="copyPreset()">⎘</button>
+            <button type="button" class="nav-button btn-delete" title="Delete preset" x-on:click="deletePreset()">✕</button>
+            <button type="button" class="nav-button btn-clear" title="Clear preset" x-on:click="clearPreset()">🗑</button>
+            <button type="button" class="nav-button btn-create" title="Create new preset" x-on:click="createNewPreset()">+</button>
+            <button type="button" class="nav-button btn-neutral" id="undoButton" title="Undo (Ctrl+Z)"
+                x-bind:disabled="!undoEnabled" x-on:click="undo()">↶</button>
+            <button type="button" class="nav-button btn-neutral" id="redoButton" title="Redo (Ctrl+Y)"
+                x-bind:disabled="!redoEnabled" x-on:click="redo()">↷</button>
+        </div>
+    </div>
+</div>
