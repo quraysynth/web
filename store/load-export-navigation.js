@@ -296,6 +296,7 @@ function storeLoadExportNavigationMethods() {
             const HW = this.HW_CH_COUNT;
             const apiFetch = qurayTransport.apiFetch;
             const parseList = qurayTransport.parsePresetsListFromResponseText;
+            const fetchPresetsListText = qurayTransport.fetchPresetsListText;
 
             try {
                 const calibResp = await apiFetch('calib.yml');
@@ -314,9 +315,7 @@ function storeLoadExportNavigationMethods() {
                 const deviceConfigYaml = jsyaml.dump(deviceConfig, { lineWidth: -1 });
                 const configChanged = storeConfigYaml !== deviceConfigYaml;
 
-                const presetsListResp = await apiFetch('presets');
-                if (!presetsListResp.ok) throw new Error(`GET presets failed: ${presetsListResp.status}`);
-                const presetsListText = await presetsListResp.text();
+                const presetsListText = await fetchPresetsListText(apiFetch);
                 const presetFiles = parseList(presetsListText);
 
                 const devicePresetNames = new Set(
@@ -488,8 +487,7 @@ function storeLoadExportNavigationMethods() {
                 if (!this.configData.color1) this.configData.color1 = '#FE3A86';
                 if (!this.configData.color2) this.configData.color2 = '#7742ff';
 
-                const presetsListResponse = await qurayTransport.apiFetch('presets');
-                const presetsListText = await presetsListResponse.text();
+                const presetsListText = await qurayTransport.fetchPresetsListText(qurayTransport.apiFetch);
                 const presetFiles = qurayTransport.parsePresetsListFromResponseText(presetsListText);
 
                 this.presetsData = {};

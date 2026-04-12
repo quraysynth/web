@@ -111,6 +111,18 @@
         return false;
     }
 
+    function parsePlainPresetsListText(text) {
+        return text
+            .split(/\r?\n/)
+            .map((line) => line.replace(/#.*$/, '').trim())
+            .filter(Boolean)
+            .map((line) => {
+                const base = line.split(/[\\/]/).pop() || line;
+                return base;
+            })
+            .filter((name) => name.toLowerCase().endsWith('.yml'));
+    }
+
     function parsePresetsListFromResponseText(presetsListText) {
         let presetFiles = [];
         const presetsListTrimmed = (presetsListText || '').trimStart();
@@ -123,7 +135,8 @@
                 throw new Error('Expected JSON array from presets');
             }
         } catch (_jsonErr) {
-            if (presetsListTrimmed.toLowerCase().startsWith('<!doctype html')) {
+            const lower = presetsListTrimmed.toLowerCase();
+            if (lower.startsWith('<!doctype html') || lower.startsWith('<html')) {
                 const doc = new DOMParser().parseFromString(presetsListText, 'text/html');
                 presetFiles = Array.from(doc.querySelectorAll('a[href]'))
                     .map((a) => a.getAttribute('href') || '')
@@ -134,10 +147,34 @@
                     })
                     .filter(Boolean);
             } else {
-                throw new Error('Unsupported presets response (expected JSON array or HTML directory listing)');
+                presetFiles = parsePlainPresetsListText(presetsListText || '');
             }
         }
         return presetFiles;
+    }
+
+    /**
+     * Static web: directory index may be missing (404). Try presets (device/API), then web/presets/, then web/presets.list.
+     */
+    async function fetchPresetsListText(apiFetch) {
+        let r = await apiFetch('presets');
+        if (r.ok) {
+            return await r.text();
+        }
+        if (r.status === 404) {
+            r = await apiFetch('web/presets/');
+            if (r.ok) {
+                return await r.text();
+            }
+            if (r.status === 404) {
+                r = await apiFetch('web/presets.list');
+                if (r.ok) {
+                    return await r.text();
+                }
+            }
+        }
+        const st = r ? r.status : 'no response';
+        throw new Error(`GET presets index failed: ${st}`);
     }
 
     function autosaveNow() {
@@ -469,6 +506,7 @@
         apiFetch,
         disableAutosaveIf501,
         parsePresetsListFromResponseText,
+        fetchPresetsListText,
         flushDirtyFilesToServer,
         startDirtyCheckTimer,
         startSensorDataPolling,
