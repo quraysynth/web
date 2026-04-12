@@ -7,7 +7,7 @@ function storeCalibrationMethods() {
         async reloadCalibYamlFromDevice() {
             const HW = this.HW_CH_COUNT;
             try {
-                const resp = await qurayTransport.apiFetch('/calib.yml');
+                const resp = await qurayTransport.apiFetch('calib.yml');
                 const text = await resp.text();
                 const parsed = jsyaml.load(text);
                 if (parsed && parsed.min_signal) {
@@ -44,7 +44,7 @@ function storeCalibrationMethods() {
             this.calibButtonState = 'calibrating';
             this.calibProgress = null;
             try {
-                const r = await qurayTransport.apiFetch('/calibrate', { method: 'POST' });
+                const r = await qurayTransport.apiFetch('calibrate', { method: 'POST' });
                 if (!r.ok) {
                     throw new Error('HTTP ' + r.status);
                 }

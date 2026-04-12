@@ -78,7 +78,7 @@ function presetView() {
             }
 
             s.selectPreset(newName);
-            qurayTransport.apiFetch(`/presets/${oldName}.yml`, { method: 'DELETE' }).catch((e) => {
+            qurayTransport.apiFetch(`presets/${oldName}.yml`, { method: 'DELETE' }).catch((e) => {
                 console.error(`Error deleting old preset file "${oldName}.yml":`, e);
             });
         },
@@ -133,7 +133,7 @@ function presetView() {
             const nextPresetName = s.presetNames.length > 0 ? s.presetNames[0] : '';
             s.selectPreset(nextPresetName);
 
-            qurayTransport.apiFetch(`/presets/${deletedName}.yml`, { method: 'DELETE' }).catch((e) => {
+            qurayTransport.apiFetch(`presets/${deletedName}.yml`, { method: 'DELETE' }).catch((e) => {
                 console.error(`Error deleting preset file "${deletedName}.yml":`, e);
             });
         },

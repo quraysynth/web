@@ -298,24 +298,24 @@ function storeLoadExportNavigationMethods() {
             const parseList = qurayTransport.parsePresetsListFromResponseText;
 
             try {
-                const calibResp = await apiFetch('/calib.yml');
-                if (!calibResp.ok) throw new Error(`GET /calib.yml failed: ${calibResp.status}`);
+                const calibResp = await apiFetch('calib.yml');
+                if (!calibResp.ok) throw new Error(`GET calib.yml failed: ${calibResp.status}`);
                 const calibText = await calibResp.text();
                 const deviceCalib = buildCalibDataFromLoaded(jsyaml.load(calibText) || {}, HW);
                 const storeCalibYaml = jsyaml.dump(this.calibData, { lineWidth: -1 });
                 const deviceCalibYaml = jsyaml.dump(deviceCalib, { lineWidth: -1 });
                 const calibChanged = storeCalibYaml !== deviceCalibYaml;
 
-                const configResp = await apiFetch('/config.yml');
-                if (!configResp.ok) throw new Error(`GET /config.yml failed: ${configResp.status}`);
+                const configResp = await apiFetch('config.yml');
+                if (!configResp.ok) throw new Error(`GET config.yml failed: ${configResp.status}`);
                 const configText = await configResp.text();
                 const deviceConfig = configWithUiDefaults(jsyaml.load(configText) || {});
                 const storeConfigYaml = jsyaml.dump(this.configData, { lineWidth: -1 });
                 const deviceConfigYaml = jsyaml.dump(deviceConfig, { lineWidth: -1 });
                 const configChanged = storeConfigYaml !== deviceConfigYaml;
 
-                const presetsListResp = await apiFetch('/presets');
-                if (!presetsListResp.ok) throw new Error(`GET /presets failed: ${presetsListResp.status}`);
+                const presetsListResp = await apiFetch('presets');
+                if (!presetsListResp.ok) throw new Error(`GET presets failed: ${presetsListResp.status}`);
                 const presetsListText = await presetsListResp.text();
                 const presetFiles = parseList(presetsListText);
 
@@ -328,8 +328,8 @@ function storeLoadExportNavigationMethods() {
                 const devicePresetYaml = {};
                 for (const file of presetFiles) {
                     const base = String(file).replace(/\.yml$/i, '').replace(/^.*\//, '');
-                    const pr = await apiFetch(`/presets/${file}`);
-                    if (!pr.ok) throw new Error(`GET /presets/${file} failed: ${pr.status}`);
+                    const pr = await apiFetch(`presets/${file}`);
+                    if (!pr.ok) throw new Error(`GET presets/${file} failed: ${pr.status}`);
                     const raw = await pr.text();
                     const parsed = jsyaml.load(raw) || { gestures: [] };
                     devicePresetYaml[base] = presetCanonicalYaml(parsed);
@@ -374,18 +374,18 @@ function storeLoadExportNavigationMethods() {
 
                 for (const name of [...presetAdd, ...presetUpdate]) {
                     const body = jsyaml.dump(this.presetsData[name], { lineWidth: -1 });
-                    await postYaml(`/presets/${name}.yml`, body);
+                    await postYaml(`presets/${name}.yml`, body);
                 }
                 if (calibChanged) {
-                    await postYaml('/calib.yml', storeCalibYaml);
+                    await postYaml('calib.yml', storeCalibYaml);
                 }
                 if (configChanged) {
-                    await postYaml('/config.yml', storeConfigYaml);
+                    await postYaml('config.yml', storeConfigYaml);
                 }
                 for (const name of presetRemove) {
-                    const r = await apiFetch(`/presets/${name}.yml`, { method: 'DELETE' });
+                    const r = await apiFetch(`presets/${name}.yml`, { method: 'DELETE' });
                     if (!r || !r.ok) {
-                        throw new Error(`/presets/${name}.yml DELETE failed: ${r ? r.status : 'no response'}`);
+                        throw new Error(`presets/${name}.yml DELETE failed: ${r ? r.status : 'no response'}`);
                     }
                 }
 
@@ -474,13 +474,13 @@ function storeLoadExportNavigationMethods() {
                 ? [...this.selectedGestureIndices]
                 : [0];
             try {
-                const calibResponse = await qurayTransport.apiFetch('/calib.yml');
+                const calibResponse = await qurayTransport.apiFetch('calib.yml');
                 const calibText = await calibResponse.text();
                 const loadedCalib = jsyaml.load(calibText) || {};
                 const HW = this.HW_CH_COUNT;
                 this.calibData = buildCalibDataFromLoaded(loadedCalib, HW);
 
-                const configResponse = await qurayTransport.apiFetch('/config.yml');
+                const configResponse = await qurayTransport.apiFetch('config.yml');
                 const configText = await configResponse.text();
                 const loadedConfig = jsyaml.load(configText) || {};
                 this.configData = loadedConfig;
@@ -488,7 +488,7 @@ function storeLoadExportNavigationMethods() {
                 if (!this.configData.color1) this.configData.color1 = '#FE3A86';
                 if (!this.configData.color2) this.configData.color2 = '#7742ff';
 
-                const presetsListResponse = await qurayTransport.apiFetch('/presets');
+                const presetsListResponse = await qurayTransport.apiFetch('presets');
                 const presetsListText = await presetsListResponse.text();
                 const presetFiles = qurayTransport.parsePresetsListFromResponseText(presetsListText);
 
@@ -496,7 +496,7 @@ function storeLoadExportNavigationMethods() {
                 this.presetNames = [];
 
                 for (const file of presetFiles) {
-                    const response = await qurayTransport.apiFetch(`/presets/${file}`);
+                    const response = await qurayTransport.apiFetch(`presets/${file}`);
                     const text = await response.text();
                     const name = file.replace('.yml', '');
                     this.presetsData[name] = jsyaml.load(text) || { gestures: [] };

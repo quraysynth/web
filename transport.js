@@ -46,25 +46,25 @@
         }
     }
 
-    function normalizeUrl(url) {
-        let normalizedUrl = url;
-        if (!normalizedUrl.startsWith('/')) {
-            normalizedUrl = '/' + normalizedUrl;
-        }
-        return normalizedUrl;
+    /** Serial protocol matches firmware routes (leading /). Browser fetch uses url as-is (relative to the page). */
+    function toDevicePath(url) {
+        const s = String(url || '').trim();
+        if (!s) return '/';
+        if (/^https?:\/\//i.test(s)) return s;
+        return s.startsWith('/') ? s : '/' + s;
     }
 
     function apiFetch(url, options = {}) {
-        const normalizedUrl = normalizeUrl(url);
+        const devicePath = toDevicePath(url);
 
         if (serialConnected) {
             const method = String(options.method || 'GET').toUpperCase();
             return new Promise((resolve, reject) => {
                 const id = ++serialRequestId;
-                const req = { m: method, id, u: normalizedUrl };
+                const req = { m: method, id, u: devicePath };
 
                 if (options.body && method === 'POST') {
-                    if (normalizedUrl.startsWith('/presets/')) {
+                    if (devicePath.startsWith('/presets/')) {
                         req.b = options.body;
                     } else {
                         try {
@@ -88,14 +88,14 @@
                 setTimeout(() => {
                     if (pendingSerialRequests.has(id)) {
                         pendingSerialRequests.delete(id);
-                        reject(new Error('Serial request timeout for ' + normalizedUrl));
+                        reject(new Error('Serial request timeout for ' + devicePath));
                     }
                 }, timeoutMs);
             });
         }
 
         /* Иначе браузер может отдать старый ответ из HTTP-кэша; curl кэш не использует. */
-        return fetch(normalizedUrl, {
+        return fetch(url, {
             ...options,
             cache: options.cache !== undefined ? options.cache : 'no-store',
         });
@@ -120,7 +120,7 @@
             if (Array.isArray(parsed)) {
                 presetFiles = parsed;
             } else {
-                throw new Error('Expected JSON array from /presets');
+                throw new Error('Expected JSON array from presets');
             }
         } catch (_jsonErr) {
             if (presetsListTrimmed.toLowerCase().startsWith('<!doctype html')) {
@@ -134,7 +134,7 @@
                     })
                     .filter(Boolean);
             } else {
-                throw new Error('Unsupported /presets response (expected JSON array or HTML directory listing)');
+                throw new Error('Unsupported presets response (expected JSON array or HTML directory listing)');
             }
         }
         return presetFiles;
@@ -208,7 +208,7 @@
 
         for (const file of presetFiles) {
             if (!app.autosaveEnabled) break;
-            const url = `/presets/${file.name}.yml`;
+            const url = `presets/${file.name}.yml`;
             const content = jsyaml.dump(file.data, { lineWidth: -1 });
             try {
                 const response = await apiFetch(url, {
@@ -245,10 +245,10 @@
             let url;
             let content;
             if (file.type === 'calib') {
-                url = '/calib.yml';
+                url = 'calib.yml';
                 content = jsyaml.dump(file.data, { lineWidth: -1 });
             } else if (file.type === 'config') {
-                url = '/config.yml';
+                url = 'config.yml';
                 content = jsyaml.dump(file.data, { lineWidth: -1 });
             } else {
                 return Promise.resolve();
@@ -314,7 +314,7 @@
         const poll = async () => {
             if (!serialConnected) {
                 try {
-                    const response = await apiFetch('/sensor_data');
+                    const response = await apiFetch('sensor_data');
                     if (response.ok) {
                         const data = await response.json();
                         if (data.signal_level && data.distance) {
