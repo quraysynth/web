@@ -154,7 +154,7 @@
     }
 
     /**
-     * Static web: directory index may be missing (404). Try presets (device/API), then web/presets/, then web/presets.list.
+     * Статика: нет листинга каталога → 404. Цепочка: presets (API устройства), presets/, presets.list.
      */
     async function fetchPresetsListText(apiFetch) {
         let r = await apiFetch('presets');
@@ -162,12 +162,12 @@
             return await r.text();
         }
         if (r.status === 404) {
-            r = await apiFetch('web/presets/');
+            r = await apiFetch('presets/');
             if (r.ok) {
                 return await r.text();
             }
             if (r.status === 404) {
-                r = await apiFetch('web/presets.list');
+                r = await apiFetch('presets.list');
                 if (r.ok) {
                     return await r.text();
                 }
