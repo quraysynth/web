@@ -13,4 +13,16 @@
         x-on:click="toggleSerial()"
         x-text="serialConnected ? '⚡ Disconnect' : '⚡ Connect Serial'">
     </button>
+    <button type="button" class="record-btn" x-on:click="reloadFromDevice()">
+        <span aria-hidden="true">🔄</span> Reload from device
+    </button>
+    <button type="button" class="record-btn" x-on:click="saveToDevice()">
+        <span aria-hidden="true">📤</span> Save to device
+    </button>
+    <button type="button" class="record-btn" x-on:click="importFromFile()">
+        <span aria-hidden="true">📥</span> Import
+    </button>
+    <button type="button" class="record-btn" x-on:click="exportToFile()">
+        <span aria-hidden="true">💾</span> Export
+    </button>
 </span>

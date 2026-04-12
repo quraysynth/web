@@ -52,7 +52,7 @@ function storeCalibrationMethods() {
                 this.calibrationPending = false;
                 this.calibButtonState = 'idle';
                 this.calibProgress = null;
-                this.showStatus('Calibration failed: ' + (e.message || String(e)), 'error');
+                console.error('Calibration failed:', e);
             }
         },
 

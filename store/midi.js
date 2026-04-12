@@ -166,16 +166,9 @@ function storeMidiMethods() {
         addMidiEvent() {
             const preset = this.currentPreset();
             if (!preset || !preset.gestures || preset.gestures.length === 0) {
-                this.showStatus('No gesture selected', 'error');
                 return;
             }
             if (!this.selectedGestureIndices || this.selectedGestureIndices.length !== 1) {
-                this.showStatus(
-                    this.selectedGestureIndices?.length > 1
-                        ? 'Select exactly one gesture to edit MIDI'
-                        : 'No gesture selected',
-                    'error'
-                );
                 return;
             }
             this.saveHistory();
@@ -184,7 +177,6 @@ function storeMidiMethods() {
             this.ensureGestureMidiCv(gesture);
             gesture.midi.push({ channel: 1, note: 60, octave: 4, scaleDegree: null });
             this.markDirty('preset', this.currentPresetName);
-            this.showStatus('MIDI event added', 'success');
         },
 
         deleteMidiEvent(index) {
@@ -193,7 +185,6 @@ function storeMidiMethods() {
             this.saveHistory();
             gesture.midi.splice(index, 1);
             this.markDirty('preset', this.currentPresetName);
-            this.showStatus('MIDI event deleted', 'success');
         },
     };
 }

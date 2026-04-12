@@ -8,7 +8,6 @@
     <link rel="icon" type="image/x-icon" href="favicon.ico">
     <link rel="stylesheet" href="style.css">
     <script src="lib/js-yaml.min.js"></script>
-    <script src="lib/jszip.min.js"></script>
     <script src="helpers.js" defer></script>
     <!-- View factories (globals); mount in app.js -->
     <script src="view/signal-calibration.js" defer></script>
@@ -46,21 +45,6 @@
             <div class="left-panel">
                 <div x-init="mount($el, 'view/signal-calibration.html')"></div>
                 <div x-init="mount($el, 'view/configuration.html')"></div>
-                <div class="section" x-data>
-                    <div class="button-group">
-                        <button type="button" onclick="saveAll()">Save All</button>
-                        <button type="button" class="secondary" onclick="downloadAll()">📦 Download ZIP</button>
-                        <button type="button" class="secondary" onclick="location.reload()">Reload</button>
-                    </div>
-                    <div
-                        class="status"
-                        role="status"
-                        x-cloak
-                        x-show="$store.app.statusVisible"
-                        x-text="$store.app.statusMessage"
-                        x-bind:class="'status ' + $store.app.statusType"
-                    ></div>
-                </div>
             </div>
 
             <div class="center-panel">

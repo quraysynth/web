@@ -53,35 +53,28 @@ function gestureView() {
                     s.selectPreset(name);
                 } else {
                     name = 'default';
-                    s.presetsData.default = { gestures: [] };
+                    s.presetsData.default = newEmptyPreset();
                     s.presetNames.push('default');
                     s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
-                    s.dirtyFlags.presets.default = true;
+                    s.markDirty('preset', 'default');
                     s.selectPreset('default');
                 }
             }
             s.gestureCreating = true;
             s.gestureShowDeviceConfirm = false;
-            s.showStatus('Draw a rectangle on the canvas or wave your hand over the device', 'success');
         },
         cancelCreateGesture() {
             const s = Alpine.store('app');
             s.gestureCanvasApi?.abortCreateGestureUi();
-            s.showStatus('Gesture creation cancelled', 'success');
         },
         showSplit() {
             const s = Alpine.store('app');
             const sel = s.selectedGestureIndices || [];
             if (sel.length !== 1) {
-                s.showStatus(
-                    sel.length > 1 ? 'Split requires exactly one selected gesture' : 'No gesture selected',
-                    'error'
-                );
                 return;
             }
             const gesture = s.currentGesture();
             if (!gesture) {
-                s.showStatus('No gesture selected', 'error');
                 return;
             }
             s.showSplit(gesture);
@@ -90,28 +83,21 @@ function gestureView() {
             const s = Alpine.store('app');
             const name = s.currentPresetName;
             if (!name || !s.presetsData[name]) {
-                s.showStatus('Please select a preset first', 'error');
                 return;
             }
 
             const preset = s.presetsData[name];
             if (!Array.isArray(preset.gestures) || preset.gestures.length === 0) {
-                s.showStatus('No gestures to copy', 'error');
                 return;
             }
 
             const sel = s.selectedGestureIndices || [];
             if (sel.length !== 1) {
-                s.showStatus(
-                    sel.length > 1 ? 'Copy requires exactly one selected gesture' : 'No gesture selected',
-                    'error'
-                );
                 return;
             }
             const primary = sel[0];
             const gesture = preset.gestures[primary];
             if (!gesture) {
-                s.showStatus('No gesture selected', 'error');
                 return;
             }
 
@@ -120,25 +106,21 @@ function gestureView() {
             preset.gestures.splice(primary + 1, 0, copy);
             s.selectedGestureIndices = [primary + 1];
             s.markDirty('preset', name);
-            s.showStatus('Gesture copied with all MIDI & CV events', 'success');
         },
         deleteGesture() {
             const s = Alpine.store('app');
             const name = s.currentPresetName;
             if (!name || !s.presetsData[name]) {
-                s.showStatus('Please select a preset first', 'error');
                 return;
             }
 
             const preset = s.presetsData[name];
             if (!Array.isArray(preset.gestures) || preset.gestures.length === 0) {
-                s.showStatus('No gestures to delete', 'error');
                 return;
             }
 
             const sel = s.selectedGestureIndices || [];
             if (sel.length === 0) {
-                s.showStatus('No gesture selected', 'error');
                 return;
             }
             s.saveHistory();
@@ -165,10 +147,6 @@ function gestureView() {
             }
 
             s.markDirty('preset', name);
-            s.showStatus(
-                toRemove.length > 1 ? `${toRemove.length} gestures deleted` : 'Gesture deleted',
-                'success'
-            );
         },
         confirmDeviceGesture() {
             Alpine.store('app').gestureCanvasApi?.confirmDeviceGesture();

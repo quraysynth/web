@@ -6,7 +6,14 @@ function presetView() {
             return Alpine.store('app').currentPresetName;
         },
         onSelectedPresetChange(event) {
-            Alpine.store('app').selectPreset(event.target.value);
+            const s = Alpine.store('app');
+            const v = event.target.value;
+            s.selectPreset(v);
+            const prevP = String(s.configData.preset ?? '');
+            const nextP = String(v ?? '');
+            if (prevP !== nextP) {
+                s.setConfigField('preset', v);
+            }
         },
         get presetOptions() {
             const names = Alpine.store('app').presetNames;
@@ -21,10 +28,8 @@ function presetView() {
         enterPlayMode() {
             const s = Alpine.store('app');
             if (!s.currentPresetName || !s.presetsData[s.currentPresetName]) {
-                s.showStatus('Please select a preset first', 'error');
                 return;
             }
-            s.showStatus('Play mode is not implemented in modular UI yet', 'error');
         },
         validatePresetName(rawName) {
             const name = String(rawName || '').trim();
@@ -42,7 +47,6 @@ function presetView() {
             const s = Alpine.store('app');
             const oldName = s.currentPresetName;
             if (!oldName) {
-                s.showStatus('Please select a preset to rename', 'error');
                 return;
             }
 
@@ -50,19 +54,18 @@ function presetView() {
             if (askedName === null) return;
             const v = this.validatePresetName(askedName);
             if (!v.ok) {
-                s.showStatus(v.message, 'error');
                 return;
             }
             const newName = v.name;
             if (newName === oldName) return;
             if (s.presetsData[newName]) {
-                s.showStatus(`Preset "${newName}" already exists`, 'error');
                 return;
             }
 
             s.presetsData[newName] = s.presetsData[oldName];
             delete s.presetsData[oldName];
-            delete s.dirtyFlags.presets[oldName];
+            delete s.autosaveRev.presets[oldName];
+            delete s.autosaveAck.presets[oldName];
             s.markDirty('preset', newName);
 
             const idx = s.presetNames.indexOf(oldName);
@@ -78,13 +81,11 @@ function presetView() {
             qurayTransport.apiFetch(`/presets/${oldName}.yml`, { method: 'DELETE' }).catch((e) => {
                 console.error(`Error deleting old preset file "${oldName}.yml":`, e);
             });
-            s.showStatus(`Preset renamed from "${oldName}" to "${newName}"`, 'success');
         },
         copyPreset() {
             const s = Alpine.store('app');
             const sourceName = s.currentPresetName;
             if (!sourceName) {
-                s.showStatus('Please select a preset to copy', 'error');
                 return;
             }
 
@@ -92,12 +93,10 @@ function presetView() {
             if (askedName === null) return;
             const v = this.validatePresetName(askedName);
             if (!v.ok) {
-                s.showStatus(v.message, 'error');
                 return;
             }
             const newName = v.name;
             if (s.presetsData[newName]) {
-                s.showStatus(`Preset "${newName}" already exists`, 'error');
                 return;
             }
 
@@ -106,13 +105,11 @@ function presetView() {
             s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
             s.markDirty('preset', newName);
             s.selectPreset(newName);
-            s.showStatus(`Preset copied as "${newName}"`, 'success');
         },
         deletePreset() {
             const s = Alpine.store('app');
             const deletedName = s.currentPresetName;
             if (!deletedName) {
-                s.showStatus('Please select a preset to delete', 'error');
                 return;
             }
 
@@ -122,7 +119,8 @@ function presetView() {
             if (!confirmed) return;
 
             delete s.presetsData[deletedName];
-            delete s.dirtyFlags.presets[deletedName];
+            delete s.autosaveRev.presets[deletedName];
+            delete s.autosaveAck.presets[deletedName];
 
             s.presetNames = s.presetNames.filter((name) => name !== deletedName);
             s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
@@ -138,13 +136,11 @@ function presetView() {
             qurayTransport.apiFetch(`/presets/${deletedName}.yml`, { method: 'DELETE' }).catch((e) => {
                 console.error(`Error deleting preset file "${deletedName}.yml":`, e);
             });
-            s.showStatus(`Preset "${deletedName}" deleted`, 'success');
         },
         clearPreset() {
             const s = Alpine.store('app');
             const name = s.currentPresetName;
             if (!name) {
-                s.showStatus('Please select a preset to clear', 'error');
                 return;
             }
 
@@ -155,7 +151,6 @@ function presetView() {
             s.presetsData[name] = { gestures: [] };
             s.markDirty('preset', name);
             s.selectedGestureIndices = [0];
-            s.showStatus(`Preset "${name}" cleared`, 'success');
         },
         createNewPreset() {
             const s = Alpine.store('app');
@@ -163,21 +158,18 @@ function presetView() {
             if (askedName === null) return;
             const v = this.validatePresetName(askedName);
             if (!v.ok) {
-                s.showStatus(v.message, 'error');
                 return;
             }
             const newName = v.name;
             if (s.presetsData[newName]) {
-                s.showStatus(`Preset "${newName}" already exists`, 'error');
                 return;
             }
 
-            s.presetsData[newName] = { gestures: [] };
+            s.presetsData[newName] = newEmptyPreset();
             s.presetNames.push(newName);
             s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
             s.markDirty('preset', newName);
             s.selectPreset(newName);
-            s.showStatus(`New preset "${newName}" created`, 'success');
         },
         undo() {
             Alpine.store('app').undo();

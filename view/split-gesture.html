@@ -15,8 +15,8 @@
             <div class="input-group">
                 <label>X</label>
                 <select x-model.number="splitX">
-                    <template x-for="opt in axisOptions" x-bind:key="'x-' + opt">
-                        <option x-bind:value="opt" x-text="opt"></option>
+                    <template x-for="opt in axisOptions" x-bind:key="'x-' + opt.value">
+                        <option x-bind:value="opt.value" x-text="opt.label"></option>
                     </template>
                 </select>
             </div>
@@ -24,8 +24,8 @@
             <div class="input-group">
                 <label>Y</label>
                 <select x-model.number="splitY">
-                    <template x-for="opt in axisOptions" x-bind:key="'y-' + opt">
-                        <option x-bind:value="opt" x-text="opt"></option>
+                    <template x-for="opt in axisOptions" x-bind:key="'y-' + opt.value">
+                        <option x-bind:value="opt.value" x-text="opt.label"></option>
                     </template>
                 </select>
             </div>

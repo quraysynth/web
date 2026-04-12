@@ -1,5 +1,5 @@
 /**
- * Pure helpers (no Alpine store). Status UI: store.showStatus + $store.app in index.
+ * Pure helpers (no Alpine store).
  */
 
 const MIDI_NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
@@ -35,6 +35,21 @@ const VALID_SCALE_KINDS = new Set([
     'minor_pentatonic',
     'chromatic',
 ]);
+
+/** Лад по умолчанию: при загрузке без scale и при создании нового пресета. */
+const PRESET_SCALE_DEFAULT_ON_LOAD = {
+    scale: 'natural_minor',
+    root: 'D',
+    octave: 1,
+};
+
+/** Пустой пресет (без жестов) с ладом по умолчанию. */
+function newEmptyPreset() {
+    return {
+        gestures: [],
+        scale: { ...PRESET_SCALE_DEFAULT_ON_LOAD },
+    };
+}
 
 /** Семитоны от тоники для каждого лада (совпадает с VALID_SCALE_KINDS). */
 const SCALE_KIND_INTERVALS = {
@@ -164,26 +179,37 @@ function recomputeMidiNotesFromPresetScale(preset) {
     }
 }
 
-function normalizePresetData(preset) {
+/**
+ * @param {object} preset
+ * @param {{ fillMissingScale?: boolean }} [options] — при загрузке с устройства/импорта: подставить лад, если scale нет.
+ */
+function normalizePresetData(preset, options) {
     if (!preset) return;
+    const fillMissingScale = options && options.fillMissingScale === true;
 
     if (preset.scale !== undefined && preset.scale !== null) {
         if (typeof preset.scale !== 'object' || Array.isArray(preset.scale)) {
             preset.scale = null;
-        } else {
-            const s = preset.scale;
-            if (!MIDI_NOTE_NAMES.includes(s.root)) s.root = 'C';
-            {
-                const o = typeof s.octave === 'number' ? s.octave : parseInt(String(s.octave), 10);
-                s.octave = Number.isNaN(o)
-                    ? 0
-                    : Math.min(SCALE_OCTAVE_MAX, Math.max(SCALE_OCTAVE_MIN, o));
-            }
-            if (s.kind && VALID_SCALE_KINDS.has(s.kind) && !VALID_SCALE_KINDS.has(s.scale)) {
-                s.scale = s.kind;
-            }
-            if (!VALID_SCALE_KINDS.has(s.scale)) s.scale = 'major';
         }
+    }
+
+    if (fillMissingScale && preset.scale == null) {
+        preset.scale = { ...PRESET_SCALE_DEFAULT_ON_LOAD };
+    }
+
+    if (preset.scale != null && typeof preset.scale === 'object' && !Array.isArray(preset.scale)) {
+        const s = preset.scale;
+        if (!MIDI_NOTE_NAMES.includes(s.root)) s.root = 'C';
+        {
+            const o = typeof s.octave === 'number' ? s.octave : parseInt(String(s.octave), 10);
+            s.octave = Number.isNaN(o)
+                ? 0
+                : Math.min(SCALE_OCTAVE_MAX, Math.max(SCALE_OCTAVE_MIN, o));
+        }
+        if (s.kind && VALID_SCALE_KINDS.has(s.kind) && !VALID_SCALE_KINDS.has(s.scale)) {
+            s.scale = s.kind;
+        }
+        if (!VALID_SCALE_KINDS.has(s.scale)) s.scale = 'major';
     }
 
     if (!preset.gestures) return;

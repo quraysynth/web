@@ -13,10 +13,6 @@ function configurationView() {
         deviceColor2Hex() {
             return '-';
         },
-        get configPresetOptions() {
-            const names = Alpine.store('app').presetNames;
-            return [{ value: '', label: 'Select preset...' }, ...names.map((n) => ({ value: n, label: n }))];
-        },
         onConfigField(key, value) {
             Alpine.store('app').setConfigField(key, value);
         },

@@ -45,7 +45,6 @@ function storeHistoryMethods() {
                     ? [...state.selectedGestureIndices]
                     : [state.gestureIndex ?? 0];
                 this.markDirty('preset', state.presetName);
-                this.showStatus('Undo successful', 'success');
             }
         },
 
@@ -73,7 +72,6 @@ function storeHistoryMethods() {
                     ? [...state.selectedGestureIndices]
                     : [state.gestureIndex ?? 0];
                 this.markDirty('preset', state.presetName);
-                this.showStatus('Redo successful', 'success');
             }
         },
     };

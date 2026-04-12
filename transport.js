@@ -106,14 +106,6 @@
         if (response && response.status === 501) {
             app.autosaveEnabled = false;
             console.error(`Autosave disabled: server returned 501 for ${url}`);
-            if (app && typeof app.showStatus === 'function') {
-                app.showStatus(
-                    'Autosave disabled: server does not support POST (501). Use "Download ZIP" to export.',
-                    'error'
-                );
-            } else {
-                console.warn('Autosave disabled: server does not support POST (501). Use "Download ZIP" to export.');
-            }
             return true;
         }
         return false;
@@ -148,22 +140,67 @@
         return presetFiles;
     }
 
+    function autosaveNow() {
+        return {
+            t: typeof performance !== 'undefined' ? performance.now() : 0,
+            wall: new Date().toISOString(),
+        };
+    }
+
+    function presetAutosavePending(app, name) {
+        const rev = app.autosaveRev.presets[name] || 0;
+        const ack = app.autosaveAck.presets[name] || 0;
+        return rev > ack;
+    }
+
     async function flushDirtyFilesToServer(app) {
         if (!app.autosaveEnabled) return;
 
+        const rev = app.autosaveRev;
+        const ack = app.autosaveAck;
+        const presetDirtyNames = Object.keys(app.presetsData || {}).filter((n) =>
+            presetAutosavePending(app, n)
+        );
+        const hasCalib = rev.calib > ack.calib;
+        const hasConfig = rev.config > ack.config;
+        if (hasCalib || hasConfig || presetDirtyNames.length > 0) {
+            const { t, wall } = autosaveNow();
+            console.log('[autosave] timer dequeue', {
+                calib: hasCalib ? { rev: rev.calib, ack: ack.calib } : null,
+                config: hasConfig ? { rev: rev.config, ack: ack.config } : null,
+                presets: presetDirtyNames.map((n) => ({
+                    name: n,
+                    rev: rev.presets[n] || 0,
+                    ack: ack.presets[n] || 0,
+                })),
+                t,
+                wall,
+            });
+        }
+
         const filesToUpdate = [];
-        if (app.dirtyFlags.calib) {
-            filesToUpdate.push({ type: 'calib', data: app.calibData });
-            app.dirtyFlags.calib = false;
+        if (rev.calib > ack.calib) {
+            filesToUpdate.push({
+                type: 'calib',
+                sendRev: rev.calib,
+                data: app.calibData,
+            });
         }
-        if (app.dirtyFlags.config) {
-            filesToUpdate.push({ type: 'config', data: app.configData });
-            app.dirtyFlags.config = false;
+        if (rev.config > ack.config) {
+            filesToUpdate.push({
+                type: 'config',
+                sendRev: rev.config,
+                data: app.configData,
+            });
         }
-        for (const [presetName, isDirty] of Object.entries(app.dirtyFlags.presets)) {
-            if (isDirty && app.presetsData[presetName]) {
-                filesToUpdate.push({ type: 'preset', name: presetName, data: app.presetsData[presetName] });
-            }
+        for (const presetName of Object.keys(app.presetsData || {})) {
+            if (!presetAutosavePending(app, presetName)) continue;
+            filesToUpdate.push({
+                type: 'preset',
+                name: presetName,
+                sendRev: rev.presets[presetName],
+                data: app.presetsData[presetName],
+            });
         }
 
         const presetFiles = filesToUpdate.filter((f) => f.type === 'preset');
@@ -181,8 +218,20 @@
                 });
                 if (disableAutosaveIf501(response, url, app)) break;
                 if (response && response.ok) {
-                    app.dirtyFlags.presets[file.name] = false;
-                    console.log(`Updated ${url}`);
+                    const curRev = app.autosaveRev.presets[file.name] || 0;
+                    if (curRev === file.sendRev) {
+                        app.autosaveAck.presets[file.name] = file.sendRev;
+                    }
+                    const ok = autosaveNow();
+                    console.log('[autosave] device ok', {
+                        url,
+                        status: response.status,
+                        sendRev: file.sendRev,
+                        currentRev: curRev,
+                        acked: curRev === file.sendRev,
+                        t: ok.t,
+                        wall: ok.wall,
+                    });
                 } else {
                     console.error(`Failed ${url}:`, response ? response.status : 'no response');
                 }
@@ -211,7 +260,39 @@
             })
                 .then((r) => {
                     if (disableAutosaveIf501(r, url, app)) return;
-                    if (r && r.ok) console.log(`Updated ${url}`);
+                    if (r && r.ok) {
+                        const sendRev = file.sendRev;
+                        if (file.type === 'calib') {
+                            if (app.autosaveRev.calib === sendRev) {
+                                app.autosaveAck.calib = sendRev;
+                            }
+                        } else if (file.type === 'config') {
+                            if (app.autosaveRev.config === sendRev) {
+                                app.autosaveAck.config = sendRev;
+                            }
+                        }
+                        const ok = autosaveNow();
+                        console.log('[autosave] device ok', {
+                            url,
+                            status: r.status,
+                            type: file.type,
+                            sendRev,
+                            currentRev:
+                                file.type === 'calib'
+                                    ? app.autosaveRev.calib
+                                    : file.type === 'config'
+                                      ? app.autosaveRev.config
+                                      : undefined,
+                            acked:
+                                file.type === 'calib'
+                                    ? app.autosaveRev.calib === sendRev
+                                    : file.type === 'config'
+                                      ? app.autosaveRev.config === sendRev
+                                      : undefined,
+                            t: ok.t,
+                            wall: ok.wall,
+                        });
+                    }
                 })
                 .catch((e) => console.error(`Error ${url}:`, e));
         });
@@ -258,6 +339,15 @@
         poll();
     }
 
+    /**
+     * Строка с датчиками: либо чистый JSON, либо префикс `1,2,...,N,... {json}` (первый `{` — начало JSON).
+     */
+    function parseSerialJsonLine(trimmed) {
+        const brace = trimmed.indexOf('{');
+        const jsonStr = brace >= 0 ? trimmed.slice(brace) : trimmed;
+        return JSON.parse(jsonStr);
+    }
+
     async function readSerialLoop() {
         const decoder = new TextDecoderStream();
         serialPort.readable.pipeTo(decoder.writable).catch(() => {});
@@ -279,7 +369,7 @@
                     const trimmed = line.trim();
                     if (!trimmed) continue;
                     try {
-                        const data = JSON.parse(trimmed);
+                        const data = parseSerialJsonLine(trimmed);
                         if (data.d && data.s) {
                             if (boundApp) {
                                 boundApp.sensorData.distance = data.d;

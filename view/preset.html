@@ -5,8 +5,8 @@
             <select
                 id="selectedPreset"
                 style="flex: 1;"
-                x-bind:value="selectedPreset"
                 x-on:change="onSelectedPresetChange($event)"
+                x-effect="void presetOptions; $nextTick(() => { $el.value = selectedPreset })"
             >
                 <template x-for="opt in presetOptions" x-bind:key="opt.value + '-' + opt.label">
                     <option x-bind:value="opt.value" x-text="opt.label"></option>

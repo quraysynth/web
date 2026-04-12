@@ -70,16 +70,9 @@ function storeCvMethods() {
         addCvEvent() {
             const preset = this.currentPreset();
             if (!preset || !preset.gestures || preset.gestures.length === 0) {
-                this.showStatus('No gesture selected', 'error');
                 return;
             }
             if (!this.selectedGestureIndices || this.selectedGestureIndices.length !== 1) {
-                this.showStatus(
-                    this.selectedGestureIndices?.length > 1
-                        ? 'Select exactly one gesture to edit CV'
-                        : 'No gesture selected',
-                    'error'
-                );
                 return;
             }
             this.saveHistory();
@@ -94,7 +87,6 @@ function storeCvMethods() {
                 singleValue: false,
             });
             this.markDirty('preset', this.currentPresetName);
-            this.showStatus('CV event added', 'success');
         },
 
         deleteCvEvent(index) {
@@ -103,7 +95,6 @@ function storeCvMethods() {
             this.saveHistory();
             gesture.cv.splice(index, 1);
             this.markDirty('preset', this.currentPresetName);
-            this.showStatus('CV event deleted', 'success');
         },
     };
 }

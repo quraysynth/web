@@ -28,8 +28,4 @@ document.addEventListener('alpine:init', () => {
         app.startDirtyCheckTimer();
         app.startSensorDataPolling();
     });
-
-    window.saveAll = () => Alpine.store('app').saveAll();
-    window.downloadAll = () => Alpine.store('app').downloadAll();
-
 });

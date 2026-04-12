@@ -529,7 +529,6 @@ function gestureCanvasView() {
         const yMax = Math.min(1, Math.max(L1.y, L2.y));
 
         if (xMax - xMin < 0.01 || yMax - yMin < 0.01) {
-            app().showStatus('Gesture too small, please draw a larger area', 'error');
             return;
         }
 
@@ -550,7 +549,6 @@ function gestureCanvasView() {
         abortCreateGestureUi();
 
         app().markDirty('preset', name);
-        app().showStatus(`New gesture created (${newIdx + 1}/${preset.gestures.length})`, 'success');
     }
 
     function handleCanvasMouseMove(event) {
@@ -838,7 +836,6 @@ function gestureCanvasView() {
         if (e.key === 'Escape' && app().gestureCreating) {
             e.preventDefault();
             abortCreateGestureUi();
-            app().showStatus('Gesture creation cancelled', 'success');
             return;
         }
         if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) {
@@ -880,7 +877,6 @@ function gestureCanvasView() {
         abortCreateGestureUi,
         confirmDeviceGesture() {
             if (!deviceGestureBounds) {
-                app().showStatus('No device data captured yet', 'error');
                 return;
             }
             const canvas = document.getElementById('gestureCanvas');

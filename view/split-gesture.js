@@ -1,6 +1,9 @@
 function splitGestureView() {
     return {
-        axisOptions: Array.from({ length: 8 }, (_, i) => i),
+        axisOptions: Array.from({ length: 8 }, (_, i) => ({
+            value: i,
+            label: String(i + 1),
+        })),
         orderOptions: [
             { value: 'linear', label: 'linear' },
             { value: 'jump2', label: 'jump 2' },

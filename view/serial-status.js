@@ -31,6 +31,18 @@ function serialStatusView() {
         async toggleSerial() {
             await Alpine.store('app').toggleSerial();
         },
+        async reloadFromDevice() {
+            await Alpine.store('app').reloadFromDevice();
+        },
+        async saveToDevice() {
+            await Alpine.store('app').saveToDevice();
+        },
+        async importFromFile() {
+            await Alpine.store('app').importFromFile();
+        },
+        async exportToFile() {
+            await Alpine.store('app').exportToFile();
+        },
         toggleRecording() {
             /* stub */
         },

@@ -31,9 +31,16 @@ function getInitialAppState() {
         splitModalVisible: false,
         splitSourceGesture: null,
 
-        dirtyFlags: {
-            calib: false,
-            config: false,
+        /** Monotonic revision per scope; increment in markDirty. */
+        autosaveRev: {
+            calib: 0,
+            config: 0,
+            presets: {},
+        },
+        /** Last revision known applied on device (updated on successful POST if rev unchanged at ack). */
+        autosaveAck: {
+            calib: 0,
+            config: 0,
             presets: {},
         },
         autosaveEnabled: true,
@@ -48,10 +55,5 @@ function getInitialAppState() {
         undoStack: [],
         redoStack: [],
         MAX_HISTORY: 10,
-
-        statusMessage: '',
-        statusType: 'success',
-        statusVisible: false,
-        _statusHideTimer: null,
     };
 }

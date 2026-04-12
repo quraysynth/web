@@ -8,7 +8,10 @@
             <div class="midi-event-controls">
                 <div>
                     <label>Scale</label>
-                    <select x-bind:value="scaleKindValue" x-on:change="onKindChange($event)">
+                    <select
+                        x-on:change="onKindChange($event)"
+                        x-effect="void scaleKindValue; void scaleKinds; $nextTick(() => { $el.value = scaleKindValue })"
+                    >
                         <option value="">—</option>
                         <template x-for="opt in scaleKinds" x-bind:key="opt.id">
                             <option x-bind:value="opt.id" x-text="opt.label"></option>
@@ -19,7 +22,10 @@
                     <div style="display: contents;">
                         <div>
                             <label>Root</label>
-                            <select x-bind:value="scaleData.root" x-on:change="onRootChange($event)">
+                            <select
+                                x-on:change="onRootChange($event)"
+                                x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.root })"
+                            >
                                 <template x-for="n in rootNotes" x-bind:key="n">
                                     <option x-bind:value="n" x-text="n"></option>
                                 </template>
@@ -31,8 +37,8 @@
                                 type="number"
                                 min="-8"
                                 max="8"
-                                x-bind:value="scaleData.octave"
                                 x-on:change="onOctaveChange($event)"
+                                x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.octave })"
                             />
                         </div>
                     </div>

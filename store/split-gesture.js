@@ -72,7 +72,6 @@ function storeSplitGestureMethods() {
         split(params) {
             const preset = this.currentPreset();
             if (!preset) {
-                this.showStatus('No preset selected', 'error');
                 this.closeSplit();
                 return;
             }
@@ -99,7 +98,6 @@ function storeSplitGestureMethods() {
                 sourceIndex = preset.gestures.length;
             }
             if (!Array.isArray(gesture.position) || gesture.position.length < 5) {
-                this.showStatus('Source gesture has no valid position', 'error');
                 this.closeSplit();
                 return;
             }
@@ -114,7 +112,6 @@ function storeSplitGestureMethods() {
             const width = xMax - xMin;
             const height = yMax - yMin;
             if (width <= 0 || height <= 0) {
-                this.showStatus('Source gesture bounds are invalid', 'error');
                 this.closeSplit();
                 return;
             }
@@ -206,7 +203,6 @@ function storeSplitGestureMethods() {
             }
             this.selectedGestureIndices = [sourceIndex];
             this.markDirty('preset', this.currentPresetName);
-            this.showStatus(`Gesture split into ${cols}x${rows} grid`, 'success');
             this.closeSplit();
         },
     };

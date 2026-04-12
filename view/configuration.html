@@ -2,19 +2,6 @@
     <h2>Configuration</h2>
 
     <div class="input-group">
-        <label for="defaultPreset">Default Preset</label>
-        <select
-            id="defaultPreset"
-            x-bind:value="config.preset"
-            x-on:change="onConfigField('preset', $event.target.value)"
-        >
-            <template x-for="opt in configPresetOptions" x-bind:key="opt.value + '-' + opt.label">
-                <option x-bind:value="opt.value" x-text="opt.label"></option>
-            </template>
-        </select>
-    </div>
-
-    <div class="input-group" style="margin-top: 15px;">
         <label for="pointType">Point Type</label>
         <select
             id="pointType"
