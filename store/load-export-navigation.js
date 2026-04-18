@@ -254,6 +254,8 @@ function storeLoadExportNavigationMethods() {
         ensureGestureMidiCv(gesture) {
             if (!gesture.midi || !Array.isArray(gesture.midi)) gesture.midi = [];
             if (!gesture.cv || !Array.isArray(gesture.cv)) gesture.cv = [];
+            if (!gesture.cv_note || !Array.isArray(gesture.cv_note)) gesture.cv_note = [];
+            if (!gesture.gate || !Array.isArray(gesture.gate)) gesture.gate = [];
         },
 
         selectPreset(name) {

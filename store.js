@@ -12,6 +12,7 @@ document.addEventListener('alpine:init', () => {
             storeCalibrationMethods(),
             storeMidiMethods(),
             storeCvMethods(),
+            storeCvNoteMethods(),
             storeHistoryMethods(),
             storeScaleMethods(),
             storeSplitGestureMethods(),

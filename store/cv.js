@@ -94,6 +94,7 @@ function storeCvMethods() {
             if (!gesture || !gesture.cv || index < 0 || index >= gesture.cv.length) return;
             this.saveHistory();
             gesture.cv.splice(index, 1);
+            syncLegacyCvFromCvNotesForGesture(gesture);
             this.markDirty('preset', this.currentPresetName);
         },
     };
