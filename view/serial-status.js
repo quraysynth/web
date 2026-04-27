@@ -50,6 +50,9 @@ function serialStatusView() {
         async exportToFile() {
             await Alpine.store('app').exportToFile();
         },
+        downloadDeviceCommLog() {
+            Alpine.store('app').downloadDeviceCommLog();
+        },
         toggleRecording() {
             /* stub */
         },

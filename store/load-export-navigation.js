@@ -476,6 +476,11 @@ function storeLoadExportNavigationMethods() {
             console.log('[exportToFile] done · downloaded bundle after reload');
         },
 
+        /** Text file: serial lines to/from device, rolling 10 min buffer (session resets on Serial connect). */
+        downloadDeviceCommLog() {
+            qurayTransport.downloadDeviceCommLog();
+        },
+
         async loadAllFiles() {
             const previousPresetName = this.currentPresetName;
             const previousGestureIndices = Array.isArray(this.selectedGestureIndices)

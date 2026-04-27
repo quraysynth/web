@@ -15,6 +15,66 @@
     const SERIAL_CHUNK_SIZE = 100;
     let serialOutBuf = new Uint8Array(0);
 
+    /** Ring-style log of serial lines (last 10 min by timestamp). */
+    const COMM_LOG_WINDOW_MS = 10 * 60 * 1000;
+    const COMM_LOG_COMPACT_THRESHOLD = 50000;
+    let commLog = [];
+    let commLogStart = 0;
+
+    function pruneCommLogNow() {
+        const cutoff = Date.now() - COMM_LOG_WINDOW_MS;
+        while (commLogStart < commLog.length && commLog[commLogStart].t < cutoff) {
+            commLogStart++;
+        }
+        if (commLogStart >= COMM_LOG_COMPACT_THRESHOLD) {
+            commLog = commLog.slice(commLogStart);
+            commLogStart = 0;
+        }
+    }
+
+    function resetSerialCommLog() {
+        commLog = [];
+        commLogStart = 0;
+    }
+
+    function appendSerialCommLog(direction, text) {
+        commLog.push({
+            t: Date.now(),
+            direction: direction === 'out' ? 'out' : 'in',
+            text: String(text),
+        });
+        pruneCommLogNow();
+    }
+
+    function downloadDeviceCommLog() {
+        pruneCommLogNow();
+        const cutoff = Date.now() - COMM_LOG_WINDOW_MS;
+        const rows = [];
+        for (let i = commLogStart; i < commLog.length; i++) {
+            const e = commLog[i];
+            if (e.t < cutoff) continue;
+            const iso = new Date(e.t).toISOString();
+            const tag = e.direction === 'out' ? '[→ to device]' : '[← from device]';
+            rows.push(`${iso} ${tag} ${e.text}`);
+        }
+        const header = [
+            '# Quray editor — serial I/O log',
+            '# Window: lines with timestamps within the last 10 minutes (at download time)',
+            '#',
+        ].join('\n');
+        const body = rows.length > 0 ? rows.join('\n') : '(no lines in this window)';
+        const out = `${header}\n${body}\n`;
+        const blob = new Blob([out], { type: 'text/plain;charset=utf-8' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        const stamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+        a.href = url;
+        a.download = `quray-serial-io-${stamp}.txt`;
+        a.click();
+        URL.revokeObjectURL(url);
+        pruneCommLogNow();
+    }
+
     function normalizeDevicePathForCompare(url) {
         const s = String(url || '').trim();
         if (!s) return '';
@@ -112,6 +172,7 @@
                     finalize();
                     resolve(response);
                 });
+                appendSerialCommLog('out', reqStr);
                 serialWrite(reqStr + '\n');
 
                 const txTimeMs = Math.ceil(reqStr.length / SERIAL_CHUNK_SIZE) * 60;
@@ -440,6 +501,7 @@
                 for (const line of lines) {
                     const trimmed = line.trim();
                     if (!trimmed) continue;
+                    appendSerialCommLog('in', trimmed);
                     try {
                         const data = parseSerialJsonLine(trimmed);
                         if (data.d && data.s) {
@@ -495,6 +557,7 @@
         await serialPort.open({ baudRate: 921600 });
 
         setSerialConnected(true);
+        resetSerialCommLog();
         readSerialLoop();
 
         if (boundApp?.loadAllFiles) {
@@ -549,5 +612,6 @@
         connectSerial,
         disconnectSerial,
         isSerialConnected,
+        downloadDeviceCommLog,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -25,5 +25,9 @@
     <button type="button" class="record-btn" x-on:click="exportToFile()">
         <span aria-hidden="true">💾</span> Export
     </button>
+    <button type="button" class="record-btn" title="Download serial traffic from the last 10 minutes (this session)"
+        x-on:click="downloadDeviceCommLog()">
+        <span aria-hidden="true">📋</span> I/O log
+    </button>
     <span class="transfer-status" x-bind:class="{ busy: transferStatusBusy }" x-text="transferStatusText"></span>
 </span>
