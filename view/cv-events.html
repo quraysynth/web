@@ -16,8 +16,8 @@
                     <div>
                         <label>Channel</label>
                         <select
-                            x-bind:value="event.channel"
                             x-on:change="onChannelChange(index, $event)"
+                            x-effect="void event.channel; $nextTick(() => { $el.value = String(event.channel ?? 1) })"
                         >
                             <template x-for="ch in channels4" x-bind:key="ch">
                                 <option x-bind:value="ch" x-text="ch"></option>
@@ -27,8 +27,8 @@
                     <div>
                         <label>Axis</label>
                         <select
-                            x-bind:value="event.axis"
                             x-on:change="onAxisChange(index, $event.target.value)"
+                            x-effect="void event.axis; $nextTick(() => { $el.value = String(event.axis ?? 'y') })"
                         >
                             <option value="x">X</option>
                             <option value="y">Y</option>

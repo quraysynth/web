@@ -28,6 +28,13 @@ function serialStatusView() {
             if (app.calibrationPending && app.calibButtonState === 'calibrating') return '…';
             return 'Calibrate';
         },
+        get transferStatusText() {
+            const pending = Number(Alpine.store('app').deviceIoInFlight) || 0;
+            return pending > 0 ? `Transfer in progress (${pending})` : 'No active transfer';
+        },
+        get transferStatusBusy() {
+            return (Number(Alpine.store('app').deviceIoInFlight) || 0) > 0;
+        },
         async toggleSerial() {
             await Alpine.store('app').toggleSerial();
         },

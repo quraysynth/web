@@ -45,6 +45,8 @@ function getInitialAppState() {
         },
         autosaveEnabled: true,
         serialConnected: false,
+        /** Number of active non-polling device API requests (HTTP/WebSerial). */
+        deviceIoInFlight: 0,
 
         calibrationPending: false,
         /** 'idle' | 'calibrating' | 'calibrated' — только для классов, не для текста */

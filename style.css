@@ -733,6 +733,17 @@
     margin-left: 0;
 }
 
+.transfer-status {
+    margin-left: 4px;
+    font-size: 12px;
+    color: #7f8a95;
+    white-space: nowrap;
+}
+
+.transfer-status.busy {
+    color: #5cdcff;
+}
+
 /* Center toolbar: preset | gesture nav; canvas is full width below (matches index.html.old) */
 .center-control-row {
     display: flex;

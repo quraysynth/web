@@ -15,6 +15,26 @@
     const SERIAL_CHUNK_SIZE = 100;
     let serialOutBuf = new Uint8Array(0);
 
+    function normalizeDevicePathForCompare(url) {
+        const s = String(url || '').trim();
+        if (!s) return '';
+        const noHash = s.split('#')[0];
+        const noQuery = noHash.split('?')[0];
+        return noQuery.replace(/^\/+/, '').toLowerCase();
+    }
+
+    /** Exclude high-frequency polling endpoint from transfer status indicator. */
+    function shouldTrackDeviceRequest(url) {
+        return normalizeDevicePathForCompare(url) !== 'sensor_data';
+    }
+
+    function updateDeviceIoInFlight(delta) {
+        if (!boundApp) return;
+        const cur = Number(boundApp.deviceIoInFlight) || 0;
+        const next = cur + delta;
+        boundApp.deviceIoInFlight = next > 0 ? next : 0;
+    }
+
     function bindApp(app) {
         boundApp = app;
         if (boundApp) {
@@ -56,10 +76,17 @@
 
     function apiFetch(url, options = {}) {
         const devicePath = toDevicePath(url);
+        const track = shouldTrackDeviceRequest(devicePath);
 
         if (serialConnected) {
             const method = String(options.method || 'GET').toUpperCase();
             return new Promise((resolve, reject) => {
+                let done = false;
+                const finalize = () => {
+                    if (done) return;
+                    done = true;
+                    if (track) updateDeviceIoInFlight(-1);
+                };
                 const id = ++serialRequestId;
                 const req = { m: method, id, u: devicePath };
 
@@ -80,7 +107,11 @@
                 }
 
                 const reqStr = JSON.stringify(req);
-                pendingSerialRequests.set(id, resolve);
+                if (track) updateDeviceIoInFlight(1);
+                pendingSerialRequests.set(id, (response) => {
+                    finalize();
+                    resolve(response);
+                });
                 serialWrite(reqStr + '\n');
 
                 const txTimeMs = Math.ceil(reqStr.length / SERIAL_CHUNK_SIZE) * 60;
@@ -88,6 +119,7 @@
                 setTimeout(() => {
                     if (pendingSerialRequests.has(id)) {
                         pendingSerialRequests.delete(id);
+                        finalize();
                         reject(new Error('Serial request timeout for ' + devicePath));
                     }
                 }, timeoutMs);
@@ -95,9 +127,12 @@
         }
 
         /* Иначе браузер может отдать старый ответ из HTTP-кэша; curl кэш не использует. */
+        if (track) updateDeviceIoInFlight(1);
         return fetch(url, {
             ...options,
             cache: options.cache !== undefined ? options.cache : 'no-store',
+        }).finally(() => {
+            if (track) updateDeviceIoInFlight(-1);
         });
     }
 

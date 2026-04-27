@@ -25,4 +25,5 @@
     <button type="button" class="record-btn" x-on:click="exportToFile()">
         <span aria-hidden="true">💾</span> Export
     </button>
+    <span class="transfer-status" x-bind:class="{ busy: transferStatusBusy }" x-text="transferStatusText"></span>
 </span>

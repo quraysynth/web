@@ -105,6 +105,9 @@ function presetView() {
             s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
             s.markDirty('preset', newName);
             s.selectPreset(newName);
+            if (String(s.configData.preset ?? '') !== newName) {
+                s.setConfigField('preset', newName);
+            }
         },
         deletePreset() {
             const s = Alpine.store('app');
@@ -170,6 +173,9 @@ function presetView() {
             s.presetNames.sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
             s.markDirty('preset', newName);
             s.selectPreset(newName);
+            if (String(s.configData.preset ?? '') !== newName) {
+                s.setConfigField('preset', newName);
+            }
         },
         undo() {
             Alpine.store('app').undo();

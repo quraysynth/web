@@ -19,8 +19,8 @@
 
                     <div>
                         <select
-                            x-bind:value="typeSelectValue(event)"
                             x-on:change="onTypeChange(index, $event.target.value)"
+                            x-effect="void event.note; void event.cc; $nextTick(() => { $el.value = typeSelectValue(event) })"
                         >
                             <option value="note">Note</option>
                             <option value="cc">CC</option>
@@ -28,8 +28,8 @@
                     </div>
                     <div>
                         <select
-                            x-bind:value="event.channel"
                             x-on:change="onChannelChange(index, $event)"
+                            x-effect="void event.channel; $nextTick(() => { $el.value = String(event.channel ?? 1) })"
                         >
                             <template x-for="ch in channels16" x-bind:key="ch">
                                 <option x-bind:value="ch" x-text="ch"></option>
@@ -46,8 +46,8 @@
 
                             <div>
                                 <select
-                                    x-bind:value="noteSelectValue(event)"
                                     x-on:change="onNoteNameChange(index, $event.target.value)"
+                                    x-effect="void event.note; void event.scaleDegree; void event.octave; $nextTick(() => { $el.value = noteSelectValue(event) })"
                                 >
                                     <template x-for="opt in scaleDegreeOptions" x-bind:key="'sd-' + opt.degreeIndex">
                                         <option x-bind:value="'deg:' + opt.degreeIndex" x-text="opt.label"></option>
@@ -97,8 +97,8 @@
                             </div>
                             <div>
                                 <select
-                                    x-bind:value="event.axis"
                                     x-on:change="onAxisChange(index, $event.target.value)"
+                                    x-effect="void event.axis; $nextTick(() => { $el.value = String(event.axis ?? 'y') })"
                                 >
                                     <option value="x">X</option>
                                     <option value="y">Y</option>
