@@ -254,8 +254,6 @@ function storeLoadExportNavigationMethods() {
         ensureGestureMidiCv(gesture) {
             if (!gesture.midi || !Array.isArray(gesture.midi)) gesture.midi = [];
             if (!gesture.cv || !Array.isArray(gesture.cv)) gesture.cv = [];
-            if (!gesture.cv_note || !Array.isArray(gesture.cv_note)) gesture.cv_note = [];
-            if (!gesture.gate || !Array.isArray(gesture.gate)) gesture.gate = [];
         },
 
         selectPreset(name) {
@@ -309,13 +307,22 @@ function storeLoadExportNavigationMethods() {
                 const deviceCalibYaml = jsyaml.dump(deviceCalib, { lineWidth: -1 });
                 const calibChanged = storeCalibYaml !== deviceCalibYaml;
 
-                const configResp = await apiFetch('config.yml');
+                const configResp = await apiFetch('/config.yml');
                 if (!configResp.ok) throw new Error(`GET config.yml failed: ${configResp.status}`);
                 const configText = await configResp.text();
                 const deviceConfig = configWithUiDefaults(jsyaml.load(configText) || {});
                 const storeConfigYaml = jsyaml.dump(this.configData, { lineWidth: -1 });
-                const deviceConfigYaml = jsyaml.dump(deviceConfig, { lineWidth: -1 });
-                const configChanged = storeConfigYaml !== deviceConfigYaml;
+                let configChanged = true;
+                if (configResp.ok) {
+                    const configText = await configResp.text();
+                    const deviceConfig = configWithUiDefaults(jsyaml.load(configText) || {});
+                    const deviceConfigYaml = jsyaml.dump(deviceConfig, { lineWidth: -1 });
+                    configChanged = storeConfigYaml !== deviceConfigYaml;
+                } else if (configResp.status !== 404) {
+                    throw new Error(`GET /config.yml failed: ${configResp.status}`);
+                } else {
+                    console.warn('[saveToDevice] /config.yml missing on device; it will be uploaded');
+                }
 
                 const presetsListText = await fetchPresetsListText(apiFetch);
                 const presetFiles = parseList(presetsListText);
