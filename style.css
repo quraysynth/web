@@ -562,6 +562,20 @@
             align-items: end;
         }
 
+        .cv-volt-step-row {
+            display: flex;
+            gap: 6px;
+            margin-top: 4px;
+        }
+
+        .cv-volt-step-btn {
+            flex: 1;
+            min-width: 0;
+            padding: 4px 0;
+            font-size: 14px;
+            line-height: 1;
+        }
+
         .midi-event-controls.midi-event-grid > button.btn-delete {
             justify-self: end;
             align-self: end;

@@ -1,7 +1,7 @@
-function cvVoltsLabel(internalValue) {
-    const v = Number(internalValue);
+function cvVoltsLabel(value) {
+    const v = Number(value);
     if (Number.isNaN(v)) return '0.00';
-    return (v * 2).toFixed(2);
+    return v.toFixed(2);
 }
 
 function eventsView() {
@@ -291,6 +291,10 @@ function eventsView() {
 
         onCvSlider(index, property, rawValue) {
             Alpine.store('app').setCvSlider(index, property, rawValue);
+        },
+
+        onCvSliderStep(index, property, delta) {
+            Alpine.store('app').adjustCvSlider(index, property, delta);
         },
 
         onCvSingleValueChange(index, enabled) {

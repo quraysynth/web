@@ -22,6 +22,7 @@
                             <select
                                 x-bind:value="typeValueForRow(row)"
                                 x-on:change="handleEventTypeChange(row, $event.target.value)"
+                                x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
                             >
                                 <option value="note">Note</option>
                                 <option value="cc">CC</option>
@@ -33,6 +34,7 @@
                             <select
                                 x-bind:value="midiEventForRow(row).channel"
                                 x-on:change="onChannelChange(row.index, $event)"
+                                x-effect="void midiEventForRow(row)?.channel; $nextTick(() => { $el.value = String(midiEventForRow(row)?.channel ?? 1) })"
                             >
                                 <template x-for="ch in channels16" x-bind:key="'ch-' + ch">
                                     <option x-bind:value="ch" x-text="ch"></option>
@@ -48,6 +50,7 @@
                         <div>
                             <select
                                 x-on:change="onNoteNameChange(row.index, $event.target.value)"
+                                x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.scaleDegree; void midiEventForRow(row)?.octave; $nextTick(() => { $el.value = noteSelectValue(midiEventForRow(row)) })"
                             >
                                 <template x-for="opt in scaleDegreeOptions" x-bind:key="'sd-' + opt.degreeIndex">
                                     <option
@@ -99,6 +102,7 @@
                                 <select
                                     x-bind:value="typeValueForRow(row)"
                                     x-on:change="handleEventTypeChange(row, $event.target.value)"
+                                    x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
                                 >
                                     <option value="note">Note</option>
                                     <option value="cc">CC</option>
@@ -110,6 +114,7 @@
                                 <select
                                     x-bind:value="midiEventForRow(row).channel"
                                     x-on:change="onChannelChange(row.index, $event)"
+                                    x-effect="void midiEventForRow(row)?.channel; $nextTick(() => { $el.value = String(midiEventForRow(row)?.channel ?? 1) })"
                                 >
                                     <template x-for="ch in channels16" x-bind:key="'ch-cc-' + ch">
                                         <option x-bind:value="ch" x-text="ch"></option>
@@ -133,8 +138,9 @@
                             </div>
                             <div>
                                 <select
-                                    x-bind:value="midiEventForRow(row).axis"
+                                    x-bind:value="midiEventForRow(row).axis ?? 'y'"
                                     x-on:change="onAxisChange(row.index, $event.target.value)"
+                                    x-effect="void midiEventForRow(row)?.axis; $nextTick(() => { $el.value = String(midiEventForRow(row)?.axis ?? 'y') })"
                                 >
                                     <option value="x">X</option>
                                     <option value="y">Y</option>
@@ -206,6 +212,7 @@
                                 <select
                                     x-bind:value="typeValueForRow(row)"
                                     x-on:change="handleEventTypeChange(row, $event.target.value)"
+                                    x-effect="void row.kind; void cvEventForRow(row); $nextTick(() => { $el.value = typeValueForRow(row) })"
                                 >
                                     <option value="note">Note</option>
                                     <option value="cc">CC</option>
@@ -217,6 +224,7 @@
                                 <select
                                     x-bind:value="cvEventForRow(row).channel"
                                     x-on:change="onCvChannelChange(row.index, $event)"
+                                    x-effect="void cvEventForRow(row)?.channel; $nextTick(() => { $el.value = String(cvEventForRow(row)?.channel ?? 1) })"
                                 >
                                     <template x-for="ch in channels4" x-bind:key="'cv-ch-' + ch">
                                         <option x-bind:value="ch" x-text="ch"></option>
@@ -231,8 +239,9 @@
 
                             <div>
                                 <select
-                                    x-bind:value="cvEventForRow(row).axis"
+                                    x-bind:value="cvEventForRow(row).axis ?? 'y'"
                                     x-on:change="onCvAxisChange(row.index, $event.target.value)"
+                                    x-effect="void cvEventForRow(row)?.axis; $nextTick(() => { $el.value = String(cvEventForRow(row)?.axis ?? 'y') })"
                                 >
                                     <option value="x">X</option>
                                     <option value="y">Y</option>
@@ -273,26 +282,54 @@
                                             V</label>
                                         <input
                                             type="range"
-                                            min="-5"
-                                            max="5"
+                                            min="-10"
+                                            max="10"
                                             step="0.1"
                                             x-bind:value="cvEventForRow(row).bottom !== undefined ? cvEventForRow(row).bottom : -5.0"
                                             x-on:input="onCvSlider(row.index, 'bottom', $event.target.value)"
                                             style="width: 100%;"
                                         />
+                                        <div class="cv-volt-step-row">
+                                            <button
+                                                type="button"
+                                                class="cv-volt-step-btn"
+                                                title="Decrease by 0.01 V"
+                                                x-on:click="onCvSliderStep(row.index, 'bottom', -0.01)"
+                                            >−</button>
+                                            <button
+                                                type="button"
+                                                class="cv-volt-step-btn"
+                                                title="Increase by 0.01 V"
+                                                x-on:click="onCvSliderStep(row.index, 'bottom', 0.01)"
+                                            >+</button>
+                                        </div>
                                     </div>
                                     <div>
                                         <label
                                             >Top: <span x-text="cvVoltsLabel(cvEventForRow(row).top !== undefined ? cvEventForRow(row).top : 5.0)"></span> V</label>
                                         <input
                                             type="range"
-                                            min="-5"
-                                            max="5"
+                                            min="-10"
+                                            max="10"
                                             step="0.1"
                                             x-bind:value="cvEventForRow(row).top !== undefined ? cvEventForRow(row).top : 5.0"
                                             x-on:input="onCvSlider(row.index, 'top', $event.target.value)"
                                             style="width: 100%;"
                                         />
+                                        <div class="cv-volt-step-row">
+                                            <button
+                                                type="button"
+                                                class="cv-volt-step-btn"
+                                                title="Decrease by 0.01 V"
+                                                x-on:click="onCvSliderStep(row.index, 'top', -0.01)"
+                                            >−</button>
+                                            <button
+                                                type="button"
+                                                class="cv-volt-step-btn"
+                                                title="Increase by 0.01 V"
+                                                x-on:click="onCvSliderStep(row.index, 'top', 0.01)"
+                                            >+</button>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -310,6 +347,7 @@
                             <select
                                 x-bind:value="typeValueForRow(row)"
                                 x-on:change="handleEventTypeChange(row, $event.target.value)"
+                                x-effect="void row.kind; void row.index; $nextTick(() => { $el.value = typeValueForRow(row) })"
                             >
                                 <option value="note">Note</option>
                                 <option value="cc">CC</option>
@@ -321,6 +359,7 @@
                             <select
                                 x-bind:value="cvNoteEventForRow(row).cvChannel"
                                 x-on:change="onCvNoteCvChange(row.index, $event.target.value)"
+                                x-effect="void cvNoteEventForRow(row)?.cvChannel; $nextTick(() => { const r = cvNoteEventForRow(row); if (r) $el.value = String(r.cvChannel ?? 1) })"
                             >
                                 <template x-for="ch in channels4" x-bind:key="'cvn-cv-' + ch">
                                     <option x-bind:value="ch" x-text="ch"></option>
@@ -331,6 +370,7 @@
                             <select
                                 x-bind:value="cvNoteEventForRow(row).gateChannel"
                                 x-on:change="onCvNoteGateChange(row.index, $event.target.value)"
+                                x-effect="void cvNoteEventForRow(row)?.gateChannel; $nextTick(() => { const r = cvNoteEventForRow(row); if (r) $el.value = String(r.gateChannel ?? 1) })"
                             >
                                 <template x-for="ch in channels4" x-bind:key="'cvn-g-' + ch">
                                     <option x-bind:value="ch" x-text="ch"></option>

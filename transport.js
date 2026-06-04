@@ -267,6 +267,9 @@
                 if (r.ok) {
                     return await r.text();
                 }
+                if (r.status === 404) {
+                    return '';
+                }
             }
         }
         const st = r ? r.status : 'no response';

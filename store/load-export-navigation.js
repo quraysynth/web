@@ -254,6 +254,8 @@ function storeLoadExportNavigationMethods() {
         ensureGestureMidiCv(gesture) {
             if (!gesture.midi || !Array.isArray(gesture.midi)) gesture.midi = [];
             if (!gesture.cv || !Array.isArray(gesture.cv)) gesture.cv = [];
+            if (!gesture.cv_note || !Array.isArray(gesture.cv_note)) gesture.cv_note = [];
+            if (!gesture.gate || !Array.isArray(gesture.gate)) gesture.gate = [];
         },
 
         selectPreset(name) {
@@ -300,17 +302,21 @@ function storeLoadExportNavigationMethods() {
 
             try {
                 const calibResp = await apiFetch('calib.yml');
-                if (!calibResp.ok) throw new Error(`GET calib.yml failed: ${calibResp.status}`);
-                const calibText = await calibResp.text();
-                const deviceCalib = buildCalibDataFromLoaded(jsyaml.load(calibText) || {}, HW);
                 const storeCalibYaml = jsyaml.dump(this.calibData, { lineWidth: -1 });
-                const deviceCalibYaml = jsyaml.dump(deviceCalib, { lineWidth: -1 });
-                const calibChanged = storeCalibYaml !== deviceCalibYaml;
+                let calibChanged = true;
+                if (calibResp.ok) {
+                    const calibText = await calibResp.text();
+                    const deviceCalib = buildCalibDataFromLoaded(jsyaml.load(calibText) || {}, HW);
+                    const deviceCalibYaml = jsyaml.dump(deviceCalib, { lineWidth: -1 });
+                    calibChanged = storeCalibYaml !== deviceCalibYaml;
+                } else if (calibResp.status === 404) {
+                    console.warn('[saveToDevice] calib.yml missing on device; it will be uploaded');
+                    calibChanged = true;
+                } else {
+                    throw new Error(`GET calib.yml failed: ${calibResp.status}`);
+                }
 
-                const configResp = await apiFetch('/config.yml');
-                if (!configResp.ok) throw new Error(`GET config.yml failed: ${configResp.status}`);
-                const configText = await configResp.text();
-                const deviceConfig = configWithUiDefaults(jsyaml.load(configText) || {});
+                const configResp = await apiFetch('config.yml');
                 const storeConfigYaml = jsyaml.dump(this.configData, { lineWidth: -1 });
                 let configChanged = true;
                 if (configResp.ok) {
@@ -318,10 +324,11 @@ function storeLoadExportNavigationMethods() {
                     const deviceConfig = configWithUiDefaults(jsyaml.load(configText) || {});
                     const deviceConfigYaml = jsyaml.dump(deviceConfig, { lineWidth: -1 });
                     configChanged = storeConfigYaml !== deviceConfigYaml;
-                } else if (configResp.status !== 404) {
-                    throw new Error(`GET /config.yml failed: ${configResp.status}`);
+                } else if (configResp.status === 404) {
+                    console.warn('[saveToDevice] config.yml missing on device; it will be uploaded');
+                    configChanged = true;
                 } else {
-                    console.warn('[saveToDevice] /config.yml missing on device; it will be uploaded');
+                    throw new Error(`GET config.yml failed: ${configResp.status}`);
                 }
 
                 const presetsListText = await fetchPresetsListText(apiFetch);

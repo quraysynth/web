@@ -17,8 +17,7 @@
     <script src="view/gesture.js" defer></script>
     <script src="view/split-gesture.js" defer></script>
     <script src="view/scale.js" defer></script>
-    <script src="view/midi-events.js" defer></script>
-    <script src="view/cv-events.js" defer></script>
+    <script src="view/events.js" defer></script>
     <script src="view/gesture-canvas.js" defer></script>
     <script src="transport.js" defer></script>
     <script src="store/initial-state.js" defer></script>
@@ -26,6 +25,7 @@
     <script src="store/calibration.js" defer></script>
     <script src="store/midi.js" defer></script>
     <script src="store/cv.js" defer></script>
+    <script src="store/cv-note.js" defer></script>
     <script src="store/history.js" defer></script>
     <script src="store/scale.js" defer></script>
     <script src="store/split-gesture.js" defer></script>
@@ -57,8 +57,7 @@
 
             <div class="right-panel">
                 <div x-init="mount($el, 'view/scale.html')"></div>
-                <div x-init="mount($el, 'view/midi-events.html')"></div>
-                <div x-init="mount($el, 'view/cv-events.html')"></div>
+                <div x-init="mount($el, 'view/events.html')"></div>
             </div>
         </div>
 

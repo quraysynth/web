@@ -48,6 +48,17 @@ function storeCvMethods() {
             this.markDirty('preset', this.currentPresetName);
         },
 
+        adjustCvSlider(index, property, delta) {
+            const ev = this.cvEventAt(index);
+            if (!ev) return;
+            this.ensureCvDefaults(ev);
+            const fallback = property === 'bottom' ? -5.0 : 5.0;
+            const current = ev[property] !== undefined ? ev[property] : fallback;
+            const next = Math.max(-10, Math.min(10, current + delta));
+            const rounded = Math.round(next * 100) / 100;
+            this.setCvSlider(index, property, rounded);
+        },
+
         setCvSingleValue(index, enabled) {
             const ev = this.cvEventAt(index);
             if (!ev) return;
@@ -94,6 +105,7 @@ function storeCvMethods() {
             if (!gesture || !gesture.cv || index < 0 || index >= gesture.cv.length) return;
             this.saveHistory();
             gesture.cv.splice(index, 1);
+            syncLegacyCvFromCvNotesForGesture(gesture);
             this.markDirty('preset', this.currentPresetName);
         },
     };
