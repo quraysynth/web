@@ -39,7 +39,7 @@ function storeSplitGestureMethods() {
     function findSourceNoteEvent(gesture) {
         if (!gesture || !Array.isArray(gesture.midi)) return null;
         for (const ev of gesture.midi) {
-            if (ev && ev.note !== undefined && ev.cc === undefined) return ev;
+            if (ev && isMidiNoteBinding(ev)) return ev;
         }
         return null;
     }
@@ -47,7 +47,7 @@ function storeSplitGestureMethods() {
     function findSourceCvNoteEvent(gesture) {
         if (!gesture || !Array.isArray(gesture.cv_note)) return null;
         for (const ev of gesture.cv_note) {
-            if (ev && ev.note !== undefined) return ev;
+            if (ev && isMidiNoteBinding(ev)) return ev;
         }
         return null;
     }
@@ -70,19 +70,24 @@ function storeSplitGestureMethods() {
      * @param {object|null} sourceEv — midi note event or cv_note event
      */
     function resolveNoteBases(sourceEv, scale) {
-        if (!sourceEv || sourceEv.note === undefined) {
+        if (!sourceEv || !isMidiNoteBinding(sourceEv)) {
             return { baseNote: null, baseOctave: 0, baseDegree: null };
         }
-        const baseNote = clampMidiNote(sourceEv.note);
+        const preset = { scale };
+        const baseNote = effectiveMidiNoteNumber(sourceEv, preset);
         const baseOctave = clampMidiOctave(
-            sourceEv.octave !== undefined ? sourceEv.octave : midiOctaveFromNumber(baseNote)
+            sourceEv.octave !== undefined && !Number.isNaN(parseInt(String(sourceEv.octave), 10))
+                ? parseInt(String(sourceEv.octave), 10)
+                : baseNote != null
+                  ? midiOctaveFromNumber(baseNote)
+                  : 0
         );
         let baseDegree =
             sourceEv.scaleDegree != null && sourceEv.scaleDegree !== ''
                 ? parseInt(String(sourceEv.scaleDegree), 10)
                 : null;
         if (Number.isNaN(baseDegree)) baseDegree = null;
-        if (baseDegree == null) {
+        if (baseDegree == null && baseNote != null) {
             baseDegree = findScaleDegreeFromNote(scale, baseNote);
         }
         return { baseNote, baseOctave, baseDegree };
@@ -98,13 +103,12 @@ function storeSplitGestureMethods() {
                 const degree = positiveMod(totalDeg, degCount);
                 const octaveShift = Math.floor(totalDeg / degCount);
                 const octave = clampMidiOctave(baseOctave + octaveShift);
-                const midi = midiNoteFromPresetScaleDegree(preset.scale, degree, octave);
                 ev.scaleDegree = degree;
                 ev.octave = octave;
-                ev.note = midi == null ? clampMidiNote(baseNote ?? 60) : midi;
+                delete ev.note;
             } else {
                 const midi = clampMidiNote((baseNote ?? 60) + offset);
-                ev.scaleDegree = null;
+                delete ev.scaleDegree;
                 ev.octave = midiOctaveFromNumber(midi);
                 ev.note = midi;
             }
@@ -114,9 +118,13 @@ function storeSplitGestureMethods() {
                     ? baseNote
                     : midiNoteFromPresetScaleDegree(preset.scale, 0, 0) ?? 60;
             const midi = clampMidiNote(startNote + offset);
-            ev.scaleDegree = hadSource ? ev.scaleDegree ?? null : 0;
-            ev.octave = hadSource ? midiOctaveFromNumber(midi) : 0;
-            ev.note = midi;
+            if (hadSource && midiEventHasScaleDegree(ev)) {
+                delete ev.note;
+            } else {
+                delete ev.scaleDegree;
+                ev.note = midi;
+            }
+            ev.octave = hadSource ? clampMidiOctave(midiOctaveFromNumber(midi)) : 0;
         }
     }
 
@@ -157,7 +165,6 @@ function storeSplitGestureMethods() {
                     midi: [],
                     cv: [],
                     cv_note: [],
-                    gate: [],
                 };
                 sourceIndex = preset.gestures.length;
             }
@@ -221,7 +228,6 @@ function storeSplitGestureMethods() {
                         const cvEv = findSourceCvNoteEvent(copy);
                         if (cvEv) {
                             applySplitOffsetToNoteLike(cvEv, offset, preset, cvBasesRaw, true);
-                            syncLegacyCvFromCvNotesForGesture(copy);
                         }
                     }
 

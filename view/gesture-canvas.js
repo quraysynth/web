@@ -537,9 +537,8 @@ function gestureCanvasView() {
         const newGesture = {
             midi: [{ channel: 1, note: 60 }],
             cv: [],
-            cv_note: [],
-            gate: [],
-            position: [true, xMin, yMin, xMax, yMax],
+                    cv_note: [],
+                    position: [true, xMin, yMin, xMax, yMax],
         };
 
         const preset = app().presetsData[name];

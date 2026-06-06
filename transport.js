@@ -15,6 +15,34 @@
     const SERIAL_CHUNK_SIZE = 100;
     let serialOutBuf = new Uint8Array(0);
 
+    const CRC32_TABLE = (() => {
+        const table = new Uint32Array(256);
+        for (let i = 0; i < 256; i++) {
+            let c = i;
+            for (let k = 0; k < 8; k++) {
+                c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+            }
+            table[i] = c >>> 0;
+        }
+        return table;
+    })();
+
+    function crc32Bytes(bytes) {
+        let crc = 0xffffffff;
+        for (let i = 0; i < bytes.length; i++) {
+            crc = CRC32_TABLE[(crc ^ bytes[i]) & 0xff] ^ (crc >>> 8);
+        }
+        return (crc ^ 0xffffffff) >>> 0;
+    }
+
+    /** CRC32 (IEEE) over decoded serial body field `b`. */
+    function crc32Body(body) {
+        const bytes = typeof body === 'string'
+            ? new TextEncoder().encode(body)
+            : new TextEncoder().encode(JSON.stringify(body));
+        return crc32Bytes(bytes);
+    }
+
     /** Ring-style log of serial lines (last 10 min by timestamp). */
     const COMM_LOG_WINDOW_MS = 10 * 60 * 1000;
     const COMM_LOG_COMPACT_THRESHOLD = 50000;
@@ -44,6 +72,62 @@
             text: String(text),
         });
         pruneCommLogNow();
+    }
+
+    /**
+     * Syntactically invalid preset YAML (scanner error ~line 21).
+     * Matches a CDC-corruption pattern that triggers YAMLDuino throw → abort on device.
+     */
+    const INVALID_PRESET_YAML_PROBE =
+        'gestures:\n' +
+        '  - midi:\n' +
+        '      - channel: 1\n' +
+        '        note: 60\n' +
+        '    cv: []\n' +
+        '    cv_note: []\n' +
+        '    gate: []\n' +
+        '    position:\n' +
+        '      - true\n' +
+        '      - 0\n' +
+        '      - 0\n' +
+        '      - 1\n' +
+        '      - 1\n' +
+        '  - midi:\n' +
+        '      - channel: 1\n' +
+        '        note: 60\n' +
+        '    cv: []\n' +
+        '    cv_note: []\n' +
+        '    gate: []\n' +
+        '    position:\n' +
+        '  60\n' +
+        '    cv: []\n' +
+        '    cv_note: []\n' +
+        '    gate: []\n' +
+        '    position:\n' +
+        '      - true\n' +
+        '      - 0\n' +
+        '      - 0\n' +
+        '      - 1\n' +
+        '      - 1\n' +
+        'scale:\n' +
+        '  scale: natural_minor\n' +
+        '  root: D\n' +
+        '  octave: 1\n';
+
+    async function sendInvalidPresetYamlProbe(presetName) {
+        const name = String(presetName || '').trim();
+        if (!name) {
+            throw new Error('No preset selected');
+        }
+        if (!serialConnected) {
+            throw new Error('Serial not connected');
+        }
+        const url = `presets/${name}.yml`;
+        return apiFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/yaml' },
+            body: INVALID_PRESET_YAML_PROBE,
+        });
     }
 
     function downloadDeviceCommLog() {
@@ -164,6 +248,7 @@
                             }
                         }
                     }
+                    req.bcrc = crc32Body(req.b);
                 }
 
                 const reqStr = JSON.stringify(req);
@@ -205,6 +290,18 @@
             return true;
         }
         return false;
+    }
+
+    /** GET/POST path for a preset file on the device (always includes .yml). */
+    function presetDeviceUrl(file) {
+        const s = String(file || '').trim();
+        if (!s) return 'presets/';
+        const base = s.replace(/\.yml$/i, '');
+        return `presets/${base}.yml`;
+    }
+
+    function presetBaseName(file) {
+        return String(file || '').replace(/\.yml$/i, '').replace(/^.*[\\/]/, '');
     }
 
     function parsePlainPresetsListText(text) {
@@ -289,6 +386,265 @@
         return rev > ack;
     }
 
+    function hasAutosavePending(app) {
+        const rev = app.autosaveRev;
+        const ack = app.autosaveAck;
+        if (rev.calib > ack.calib || rev.config > ack.config) {
+            return true;
+        }
+        return Object.keys(app.presetsData || {}).some((n) => presetAutosavePending(app, n));
+    }
+
+    let autosaveFlushInFlight = false;
+
+    let lastSyncedPresets = {};
+    let lastFullSyncRev = {};
+    let forceFullPresetSync = {};
+    let trailingFullSyncTimers = {};
+    let partialPresetSyncEnabled = true;
+
+    const PRESET_TRAILING_FULL_SYNC_MS = 1000;
+
+    function deepClonePresetYaml(obj) {
+        return JSON.parse(JSON.stringify(obj));
+    }
+
+    function resetPresetSyncSnapshots(app) {
+        lastSyncedPresets = {};
+        lastFullSyncRev = {};
+        forceFullPresetSync = {};
+        for (const timer of Object.values(trailingFullSyncTimers)) {
+            clearTimeout(timer);
+        }
+        trailingFullSyncTimers = {};
+        for (const name of Object.keys(app.presetsData || {})) {
+            lastSyncedPresets[name] = deepClonePresetYaml(preparePresetForYaml(app.presetsData[name]));
+            lastFullSyncRev[name] = app.autosaveAck.presets[name] || 0;
+        }
+    }
+
+    function jsonEqual(a, b) {
+        return JSON.stringify(a) === JSON.stringify(b);
+    }
+
+    function gestureForYamlPatch(gesture) {
+        return preparePresetForYaml({ gestures: [gesture || {}] }).gestures[0];
+    }
+
+    function diffPreset(prev, cur) {
+        if (!prev || !cur) {
+            return { kind: 'full' };
+        }
+
+        const prevGestures = prev.gestures || [];
+        const curGestures = cur.gestures || [];
+
+        if (prevGestures.length !== curGestures.length) {
+            return { kind: 'full' };
+        }
+
+        const patches = [];
+        const scaleChanged = !jsonEqual(prev.scale, cur.scale);
+
+        if (scaleChanged) {
+            patches.push({ path: '/scale', value: cur.scale });
+        }
+
+        for (let i = 0; i < curGestures.length; i++) {
+            const pg = prevGestures[i] || {};
+            const cg = curGestures[i] || {};
+            const fields = [
+                { key: 'position', path: `/gestures/${i}/position` },
+                { key: 'midi', path: `/gestures/${i}/midi` },
+                { key: 'cv', path: `/gestures/${i}/cv` },
+                { key: 'cv_note', path: `/gestures/${i}/cv_note` },
+            ];
+            const changed = fields.filter((f) => !jsonEqual(pg[f.key], cg[f.key]));
+
+            if (changed.length === 0) {
+                continue;
+            }
+            if (changed.length === 1) {
+                patches.push({ path: changed[0].path, value: cg[changed[0].key] });
+            } else {
+                patches.push({ path: `/gestures/${i}`, value: gestureForYamlPatch(cg) });
+            }
+        }
+
+        if (patches.length === 0) {
+            return { kind: 'none' };
+        }
+        return { kind: 'partial', patches };
+    }
+
+    function presetNodeDeviceUrl(presetName, path) {
+        const base = presetBaseName(presetName);
+        return `presets/${base}.yml?path=${path}`;
+    }
+
+    async function sendPresetYamlNode(presetName, patch) {
+        const url = presetNodeDeviceUrl(presetName, patch.path);
+        const body = jsyaml.dump(patch.value, { lineWidth: -1 });
+        return apiFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/yaml' },
+            body,
+        });
+    }
+
+    async function sendFullPresetYaml(presetName, presetYamlObject) {
+        const url = presetDeviceUrl(presetName);
+        const body = jsyaml.dump(presetYamlObject, { lineWidth: -1 });
+        return apiFetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'text/yaml' },
+            body,
+        });
+    }
+
+    function ackPresetRevIfUnchanged(app, presetName, sendRev) {
+        const curRev = app.autosaveRev.presets[presetName] || 0;
+        if (curRev === sendRev) {
+            app.autosaveAck.presets[presetName] = sendRev;
+        }
+        return curRev === sendRev;
+    }
+
+    function scheduleTrailingFullSync(app, name) {
+        clearTimeout(trailingFullSyncTimers[name]);
+        trailingFullSyncTimers[name] = setTimeout(() => {
+            delete trailingFullSyncTimers[name];
+            const rev = app.autosaveRev.presets[name] || 0;
+            const fullRev = lastFullSyncRev[name] || 0;
+            if (rev > fullRev) {
+                forceFullPresetSync[name] = true;
+                runAutosaveLoop(app);
+            }
+        }, PRESET_TRAILING_FULL_SYNC_MS);
+    }
+
+    async function flushFullPresetToServer(app, presetName, current, sendRev) {
+        const url = presetDeviceUrl(presetName);
+        try {
+            const response = await sendFullPresetYaml(presetName, current);
+            if (disableAutosaveIf501(response, url, app)) {
+                partialPresetSyncEnabled = false;
+                return false;
+            }
+            if (!response || !response.ok) {
+                console.error(`Failed ${url}:`, response ? response.status : 'no response');
+                return false;
+            }
+
+            lastSyncedPresets[presetName] = deepClonePresetYaml(current);
+            lastFullSyncRev[presetName] = sendRev;
+            forceFullPresetSync[presetName] = false;
+
+            const acked = ackPresetRevIfUnchanged(app, presetName, sendRev);
+            const ok = autosaveNow();
+            console.log('[autosave] device ok', {
+                url,
+                mode: 'full',
+                status: response.status,
+                sendRev,
+                currentRev: app.autosaveRev.presets[presetName] || 0,
+                acked,
+                t: ok.t,
+                wall: ok.wall,
+            });
+            return true;
+        } catch (e) {
+            console.error(`Error ${url}:`, e);
+            return false;
+        }
+    }
+
+    async function flushDirtyPresetToServer(app, file) {
+        const presetName = file.name;
+        const current = preparePresetForYaml(app.presetsData[presetName]);
+        const prev = lastSyncedPresets[presetName];
+        const sendRev = file.sendRev;
+
+        if (forceFullPresetSync[presetName] || !partialPresetSyncEnabled) {
+            return flushFullPresetToServer(app, presetName, current, sendRev);
+        }
+
+        const diff = diffPreset(prev, current);
+        if (diff.kind === 'none') {
+            ackPresetRevIfUnchanged(app, presetName, sendRev);
+            return true;
+        }
+        if (diff.kind === 'full') {
+            return flushFullPresetToServer(app, presetName, current, sendRev);
+        }
+
+        for (const patch of diff.patches) {
+            const patchUrl = presetNodeDeviceUrl(presetName, patch.path);
+            try {
+                const response = await sendPresetYamlNode(presetName, patch);
+                if (disableAutosaveIf501(response, patchUrl, app)) {
+                    partialPresetSyncEnabled = false;
+                    forceFullPresetSync[presetName] = true;
+                    return false;
+                }
+                if (!response || !response.ok) {
+                    console.error(`Failed ${patchUrl}:`, response ? response.status : 'no response');
+                    forceFullPresetSync[presetName] = true;
+                    return false;
+                }
+            } catch (e) {
+                console.error(`Error ${patchUrl}:`, e);
+                forceFullPresetSync[presetName] = true;
+                return false;
+            }
+        }
+
+        lastSyncedPresets[presetName] = deepClonePresetYaml(current);
+        const acked = ackPresetRevIfUnchanged(app, presetName, sendRev);
+        scheduleTrailingFullSync(app, presetName);
+        const ok = autosaveNow();
+        console.log('[autosave] device ok', {
+            url: presetDeviceUrl(presetName),
+            mode: 'partial',
+            patches: diff.patches.map((p) => p.path),
+            status: 200,
+            sendRev,
+            currentRev: app.autosaveRev.presets[presetName] || 0,
+            acked,
+            t: ok.t,
+            wall: ok.wall,
+        });
+        return true;
+    }
+
+    async function runAutosaveLoop(app) {
+        if (autosaveFlushInFlight) return;
+        autosaveFlushInFlight = true;
+        try {
+            let pass = 0;
+            while (app.autosaveEnabled && hasAutosavePending(app)) {
+                if (pass > 0) {
+                    const { t, wall } = autosaveNow();
+                    console.log('[autosave] flush again (edited during previous transfer)', {
+                        pass,
+                        t,
+                        wall,
+                    });
+                }
+                pass += 1;
+                await flushDirtyFilesToServer(app);
+            }
+        } finally {
+            autosaveFlushInFlight = false;
+        }
+    }
+
+    /** Start flush when markDirty fires; re-run until ack catches rev (coalesce edits during flush). */
+    function scheduleAutosaveFlush(app) {
+        if (!app || !app.autosaveEnabled) return;
+        void runAutosaveLoop(app);
+    }
+
     async function flushDirtyFilesToServer(app) {
         if (!app.autosaveEnabled) return;
 
@@ -301,7 +657,7 @@
         const hasConfig = rev.config > ack.config;
         if (hasCalib || hasConfig || presetDirtyNames.length > 0) {
             const { t, wall } = autosaveNow();
-            console.log('[autosave] timer dequeue', {
+            console.log('[autosave] flush', {
                 calib: hasCalib ? { rev: rev.calib, ack: ack.calib } : null,
                 config: hasConfig ? { rev: rev.config, ack: ack.config } : null,
                 presets: presetDirtyNames.map((n) => ({
@@ -344,36 +700,7 @@
 
         for (const file of presetFiles) {
             if (!app.autosaveEnabled) break;
-            const url = `presets/${file.name}.yml`;
-            const content = jsyaml.dump(file.data, { lineWidth: -1 });
-            try {
-                const response = await apiFetch(url, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'text/yaml' },
-                    body: content,
-                });
-                if (disableAutosaveIf501(response, url, app)) break;
-                if (response && response.ok) {
-                    const curRev = app.autosaveRev.presets[file.name] || 0;
-                    if (curRev === file.sendRev) {
-                        app.autosaveAck.presets[file.name] = file.sendRev;
-                    }
-                    const ok = autosaveNow();
-                    console.log('[autosave] device ok', {
-                        url,
-                        status: response.status,
-                        sendRev: file.sendRev,
-                        currentRev: curRev,
-                        acked: curRev === file.sendRev,
-                        t: ok.t,
-                        wall: ok.wall,
-                    });
-                } else {
-                    console.error(`Failed ${url}:`, response ? response.status : 'no response');
-                }
-            } catch (e) {
-                console.error(`Error ${url}:`, e);
-            }
+            await flushDirtyPresetToServer(app, file);
         }
 
         const otherPromises = otherFiles.map((file) => {
@@ -433,17 +760,6 @@
                 .catch((e) => console.error(`Error ${url}:`, e));
         });
         await Promise.all(otherPromises);
-    }
-
-    function startDirtyCheckTimer(app) {
-        setTimeout(async () => {
-            if (!app.autosaveEnabled) {
-                startDirtyCheckTimer(app);
-                return;
-            }
-            await flushDirtyFilesToServer(app);
-            startDirtyCheckTimer(app);
-        }, 1000);
     }
 
     function startSensorDataPolling(app) {
@@ -606,15 +922,20 @@
         bindApp,
         apiFetch,
         disableAutosaveIf501,
+        presetDeviceUrl,
+        presetBaseName,
         parsePresetsListFromResponseText,
         fetchPresetsListText,
         flushDirtyFilesToServer,
-        startDirtyCheckTimer,
+        scheduleAutosaveFlush,
+        resetPresetSyncSnapshots,
         startSensorDataPolling,
         toggleSerial,
         connectSerial,
         disconnectSerial,
         isSerialConnected,
         downloadDeviceCommLog,
+        sendInvalidPresetYamlProbe,
+        INVALID_PRESET_YAML_PROBE,
     };
 })(typeof window !== 'undefined' ? window : globalThis);

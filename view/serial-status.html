@@ -9,10 +9,6 @@
         x-on:click="toggleRecording()">
         ⏺ Record
     </button>
-    <button type="button" class="serial-btn" id="serialBtn" x-bind:class="{ connected: serialConnected }"
-        x-on:click="toggleSerial()"
-        x-text="serialConnected ? '⚡ Disconnect' : '⚡ Connect Serial'">
-    </button>
     <button type="button" class="record-btn" x-on:click="reloadFromDevice()">
         <span aria-hidden="true">🔄</span> Reload from device
     </button>
@@ -29,5 +25,15 @@
         x-on:click="downloadDeviceCommLog()">
         <span aria-hidden="true">📋</span> I/O log
     </button>
-    <span class="transfer-status" x-bind:class="{ busy: transferStatusBusy }" x-text="transferStatusText"></span>
+    <button type="button" class="record-btn record-btn--danger" x-show="serialConnected" x-cloak
+        title="POST invalid preset YAML for the current preset (firmware test; may crash or reboot the device)"
+        x-on:click="sendInvalidYamlToDevice()">
+        <span aria-hidden="true">💥</span> Bad YAML
+    </button>
+    <button type="button" class="serial-btn" id="serialBtn"
+        x-bind:class="{ connected: serialConnected, busy: serialConnected && transferStatusBusy }"
+        x-bind:disabled="serialConnected"
+        x-on:click="toggleSerial()"
+        x-text="serialButtonLabel">
+    </button>
 </span>

@@ -16,6 +16,7 @@ function scaleView() {
     return {
         rootNotes: MIDI_NOTE_NAMES,
         scaleKinds: SCALE_KIND_OPTIONS,
+        vOctOptions: V_OCT_OPTIONS,
 
         get hasPreset() {
             const s = Alpine.store('app');
@@ -44,6 +45,10 @@ function scaleView() {
 
         onOctaveChange(ev) {
             Alpine.store('app').setPresetScaleOctave(ev.target.value);
+        },
+
+        onVOctChange(ev) {
+            Alpine.store('app').setPresetScaleVOct(ev.target.value);
         },
 
         emptyHint() {

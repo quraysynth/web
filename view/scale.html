@@ -19,27 +19,42 @@
                     </select>
                 </div>
                 <template x-if="scaleData">
-                    <div style="display: contents;">
-                        <div>
-                            <label>Root</label>
-                            <select
-                                x-on:change="onRootChange($event)"
-                                x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.root })"
-                            >
-                                <template x-for="n in rootNotes" x-bind:key="n">
-                                    <option x-bind:value="n" x-text="n"></option>
-                                </template>
-                            </select>
+                    <div class="scale-extra-rows">
+                        <div class="scale-row scale-row-root-octave">
+                            <div>
+                                <label>Root</label>
+                                <select
+                                    x-on:change="onRootChange($event)"
+                                    x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.root })"
+                                >
+                                    <template x-for="n in rootNotes" x-bind:key="n">
+                                        <option x-bind:value="n" x-text="n"></option>
+                                    </template>
+                                </select>
+                            </div>
+                            <div>
+                                <label>Octave</label>
+                                <input
+                                    type="number"
+                                    min="-8"
+                                    max="8"
+                                    x-on:change="onOctaveChange($event)"
+                                    x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.octave })"
+                                />
+                            </div>
                         </div>
-                        <div>
-                            <label>Octave</label>
-                            <input
-                                type="number"
-                                min="-8"
-                                max="8"
-                                x-on:change="onOctaveChange($event)"
-                                x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = scaleData.octave })"
-                            />
+                        <div class="scale-row scale-row-voct">
+                            <div>
+                                <label>V/oct</label>
+                                <select
+                                    x-on:change="onVOctChange($event)"
+                                    x-effect="void scaleData; $nextTick(() => { if (scaleData) $el.value = String(scaleData.vOct ?? 1) })"
+                                >
+                                    <template x-for="opt in vOctOptions" x-bind:key="opt.value">
+                                        <option x-bind:value="String(opt.value)" x-text="opt.label"></option>
+                                    </template>
+                                </select>
+                            </div>
                         </div>
                     </div>
                 </template>

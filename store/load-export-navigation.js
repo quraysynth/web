@@ -35,7 +35,7 @@ function configWithUiDefaults(cfg) {
 function presetCanonicalYaml(preset) {
     const p = JSON.parse(JSON.stringify(preset || { gestures: [] }));
     normalizePresetData(p);
-    return jsyaml.dump(p, { lineWidth: -1 });
+    return jsyaml.dump(preparePresetForYaml(p), { lineWidth: -1 });
 }
 
 function storePresetNamesSorted(app) {
@@ -62,28 +62,11 @@ function logSaveToDevicePlan(calibChanged, configChanged, presetAdd, presetUpdat
 /**
  * After presetsData / presetNames / configData are set, pick current preset and gesture indices.
  * @param {object} [options]
- * @param {boolean} [options.fromDevice] — load from device: edit `default` if present, else first; sync config.preset
+ * @param {boolean} [options.fromDevice] — ignore previous editor selection; keep config.yml preset when valid
  */
 function alignPresetSelectionAfterLoad(app, previousPresetName, previousGestureIndices, options) {
     const presetNames = app.presetNames || [];
     const fromDevice = options && options.fromDevice === true;
-
-    if (fromDevice) {
-        let nextName = '';
-        if (presetNames.includes('default')) {
-            nextName = 'default';
-        } else if (presetNames.length > 0) {
-            nextName = presetNames[0];
-        }
-        app.currentPresetName = nextName;
-        app.configData.preset = nextName || '';
-        const gestures = nextName ? app.presetsData[nextName]?.gestures : null;
-        const gCount = Array.isArray(gestures) ? gestures.length : 0;
-        app.selectedGestureIndices = gCount === 0 ? [] : [0];
-        app.undoStack = [];
-        app.redoStack = [];
-        return;
-    }
 
     const cfgPreset =
         app.configData &&
@@ -95,7 +78,7 @@ function alignPresetSelectionAfterLoad(app, previousPresetName, previousGestureI
     let nextName = '';
     if (cfgPreset && presetNames.includes(cfgPreset)) {
         nextName = cfgPreset;
-    } else if (previousPresetName && presetNames.includes(previousPresetName)) {
+    } else if (!fromDevice && previousPresetName && presetNames.includes(previousPresetName)) {
         nextName = previousPresetName;
     } else if (presetNames.includes('default')) {
         nextName = 'default';
@@ -104,6 +87,9 @@ function alignPresetSelectionAfterLoad(app, previousPresetName, previousGestureI
     }
 
     app.currentPresetName = nextName;
+    if (fromDevice && nextName && nextName !== cfgPreset) {
+        app.configData.preset = nextName;
+    }
     const gestures = nextName ? app.presetsData[nextName]?.gestures : null;
     const gCount = Array.isArray(gestures) ? gestures.length : 0;
     if (gCount === 0) {
@@ -191,6 +177,7 @@ function resetAutosaveAfterFullLoad(app) {
     }
     app.autosaveRev = { calib: 0, config: 0, presets: { ...p } };
     app.autosaveAck = { calib: 0, config: 0, presets: { ...p } };
+    qurayTransport.resetPresetSyncSnapshots(app);
 }
 
 function syncAutosaveAckToRev(app) {
@@ -234,6 +221,7 @@ function storeLoadExportNavigationMethods() {
                     wall,
                 });
             }
+            qurayTransport.scheduleAutosaveFlush(this);
         },
 
         currentPreset() {
@@ -255,7 +243,6 @@ function storeLoadExportNavigationMethods() {
             if (!gesture.midi || !Array.isArray(gesture.midi)) gesture.midi = [];
             if (!gesture.cv || !Array.isArray(gesture.cv)) gesture.cv = [];
             if (!gesture.cv_note || !Array.isArray(gesture.cv_note)) gesture.cv_note = [];
-            if (!gesture.gate || !Array.isArray(gesture.gate)) gesture.gate = [];
         },
 
         selectPreset(name) {
@@ -272,10 +259,6 @@ function storeLoadExportNavigationMethods() {
             } catch (error) {
                 console.error('Serial toggle error:', error);
             }
-        },
-
-        startDirtyCheckTimer() {
-            qurayTransport.startDirtyCheckTimer(this);
         },
 
         startSensorDataPolling() {
@@ -343,7 +326,7 @@ function storeLoadExportNavigationMethods() {
                 const devicePresetYaml = {};
                 for (const file of presetFiles) {
                     const base = String(file).replace(/\.yml$/i, '').replace(/^.*\//, '');
-                    const pr = await apiFetch(`presets/${file}`);
+                    const pr = await apiFetch(qurayTransport.presetDeviceUrl(file));
                     if (!pr.ok) throw new Error(`GET presets/${file} failed: ${pr.status}`);
                     const raw = await pr.text();
                     const parsed = jsyaml.load(raw) || { gestures: [] };
@@ -388,7 +371,7 @@ function storeLoadExportNavigationMethods() {
                 };
 
                 for (const name of [...presetAdd, ...presetUpdate]) {
-                    const body = jsyaml.dump(this.presetsData[name], { lineWidth: -1 });
+                    const body = jsyaml.dump(preparePresetForYaml(this.presetsData[name]), { lineWidth: -1 });
                     await postYaml(`presets/${name}.yml`, body);
                 }
                 if (calibChanged) {
@@ -405,6 +388,7 @@ function storeLoadExportNavigationMethods() {
                 }
 
                 syncAutosaveAckToRev(this);
+                qurayTransport.resetPresetSyncSnapshots(this);
                 console.log('[saveToDevice] done · synced (store is now on device)');
             } catch (e) {
                 console.error('[saveToDevice] failed:', e);
@@ -461,7 +445,7 @@ function storeLoadExportNavigationMethods() {
 
             const presets = {};
             for (const name of storePresetNamesSorted(this)) {
-                presets[name] = JSON.parse(JSON.stringify(this.presetsData[name] || { gestures: [] }));
+                presets[name] = preparePresetForYaml(this.presetsData[name] || { gestures: [] });
             }
 
             const bundle = {
@@ -486,6 +470,40 @@ function storeLoadExportNavigationMethods() {
         /** Text file: serial lines to/from device, rolling 10 min buffer (session resets on Serial connect). */
         downloadDeviceCommLog() {
             qurayTransport.downloadDeviceCommLog();
+        },
+
+        /** Dev probe: POST broken preset YAML; firmware reload may throw and reboot. */
+        async sendInvalidYamlToDevice() {
+            if (!this.serialConnected) {
+                alert('Connect Serial first.');
+                return;
+            }
+            const name = this.currentPresetName;
+            if (!name) {
+                alert('No preset selected.');
+                return;
+            }
+            if (
+                !confirm(
+                    `Send invalid YAML to presets/${name}.yml on the device?\n\n` +
+                        'This tests firmware YAML error handling and may crash or reboot the device.'
+                )
+            ) {
+                return;
+            }
+            try {
+                const response = await qurayTransport.sendInvalidPresetYamlProbe(name);
+                if (response && response.ok) {
+                    console.warn('[sendInvalidYamlToDevice] POST ok (device may still abort on reload)');
+                } else {
+                    const st = response ? response.status : 'no response';
+                    console.error('[sendInvalidYamlToDevice] failed:', st);
+                    alert(`Device returned ${st}. See console / I/O log.`);
+                }
+            } catch (e) {
+                console.error('[sendInvalidYamlToDevice] error:', e);
+                alert(`Request failed: ${e.message || e}. Device may have rebooted.`);
+            }
         },
 
         async loadAllFiles() {
@@ -515,9 +533,9 @@ function storeLoadExportNavigationMethods() {
                 this.presetNames = [];
 
                 for (const file of presetFiles) {
-                    const response = await qurayTransport.apiFetch(`presets/${file}`);
+                    const response = await qurayTransport.apiFetch(qurayTransport.presetDeviceUrl(file));
                     const text = await response.text();
-                    const name = file.replace('.yml', '');
+                    const name = qurayTransport.presetBaseName(file);
                     this.presetsData[name] = jsyaml.load(text) || { gestures: [] };
                     normalizePresetData(this.presetsData[name], { fillMissingScale: true });
                     this.presetNames.push(name);

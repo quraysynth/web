@@ -35,6 +35,10 @@ function serialStatusView() {
         get transferStatusBusy() {
             return (Number(Alpine.store('app').deviceIoInFlight) || 0) > 0;
         },
+        get serialButtonLabel() {
+            if (this.serialConnected) return this.transferStatusText;
+            return '⚡ Connect Serial';
+        },
         async toggleSerial() {
             await Alpine.store('app').toggleSerial();
         },
@@ -52,6 +56,9 @@ function serialStatusView() {
         },
         downloadDeviceCommLog() {
             Alpine.store('app').downloadDeviceCommLog();
+        },
+        async sendInvalidYamlToDevice() {
+            await Alpine.store('app').sendInvalidYamlToDevice();
         },
         toggleRecording() {
             /* stub */

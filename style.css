@@ -61,6 +61,23 @@
             background: #2a4a2a;
         }
 
+        .serial-btn:disabled {
+            cursor: default;
+        }
+
+        .serial-btn.connected:disabled {
+            opacity: 1;
+        }
+
+        .serial-btn.connected:disabled:hover {
+            background: #1a3a1a;
+        }
+
+        .serial-btn.connected.busy:disabled {
+            border-color: #5cdcff;
+            color: #5cdcff;
+        }
+
         .record-btn {
             display: inline-flex;
             align-items: center;
@@ -81,6 +98,16 @@
             background: #444;
             border-color: #777;
             color: #fff;
+        }
+
+        .record-btn--danger {
+            border-color: #c44;
+            color: #f8d7da;
+        }
+
+        .record-btn--danger:hover {
+            background: rgba(200, 68, 68, 0.25);
+            border-color: #e66;
         }
 
         .record-btn.recording {
@@ -638,9 +665,27 @@
             min-width: 100%;
         }
 
-        .midi-event.scale-block .midi-event-controls > div:nth-child(2),
-        .midi-event.scale-block .midi-event-controls > div:nth-child(3) {
+        .midi-event.scale-block .scale-extra-rows {
+            flex: 1 1 100%;
+            min-width: 100%;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .midi-event.scale-block .scale-row-root-octave {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .midi-event.scale-block .scale-row-root-octave > div {
             flex: 0 1 70px;
+            min-width: 60px;
+        }
+
+        .midi-event.scale-block .scale-row-voct > div {
+            width: 100%;
         }
 
         #playModeOverlay {

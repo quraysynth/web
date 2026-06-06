@@ -12,7 +12,7 @@
     <div id="eventsList">
         <template x-for="row in eventRows" x-bind:key="rowKey(row)">
             <div class="midi-event">
-                <template x-if="row.kind === 'midi' && midiEventForRow(row) && midiEventForRow(row).note !== undefined">
+                <template x-if="isMidiNoteRow(row)">
                     <div class="midi-event-controls midi-event-grid">
                         <label class="midi-event-grid-label">Type</label>
                         <label class="midi-event-grid-label">Channel</label>
@@ -22,7 +22,7 @@
                             <select
                                 x-bind:value="typeValueForRow(row)"
                                 x-on:change="handleEventTypeChange(row, $event.target.value)"
-                                x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
+                                x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.scaleDegree; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
                             >
                                 <option value="note">Note</option>
                                 <option value="cc">CC</option>
@@ -91,7 +91,7 @@
                     </div>
                 </template>
 
-                <template x-if="row.kind === 'midi' && midiEventForRow(row) && midiEventForRow(row).cc !== undefined">
+                <template x-if="isMidiCcRow(row)">
                     <div>
                         <div class="midi-event-controls midi-event-grid">
                             <label class="midi-event-grid-label">Type</label>
@@ -102,7 +102,7 @@
                                 <select
                                     x-bind:value="typeValueForRow(row)"
                                     x-on:change="handleEventTypeChange(row, $event.target.value)"
-                                    x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
+                                    x-effect="void midiEventForRow(row)?.note; void midiEventForRow(row)?.scaleDegree; void midiEventForRow(row)?.cc; void row.kind; $nextTick(() => { $el.value = typeValueForRow(row) })"
                                 >
                                     <option value="note">Note</option>
                                     <option value="cc">CC</option>
@@ -385,6 +385,7 @@
                         <div>
                             <select
                                 x-on:change="onCvNoteNameChange(row.index, $event.target.value)"
+                                x-effect="void cvNoteEventForRow(row)?.note; void cvNoteEventForRow(row)?.scaleDegree; void cvNoteEventForRow(row)?.octave; $nextTick(() => { $el.value = noteSelectValue(cvNoteEventForRow(row)) })"
                             >
                                 <template x-for="opt in scaleDegreeOptions" x-bind:key="'cvn-sd-' + opt.degreeIndex">
                                     <option

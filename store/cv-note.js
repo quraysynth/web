@@ -14,14 +14,8 @@ function storeCvNoteMethods() {
             const ev = this.cvNoteEventAt(index);
             if (!ev) return;
             this.saveHistory();
-            const prevCh = parseInt(String(ev.cvChannel), 10);
             const ch = parseInt(String(rawChannel), 10);
-            const nextCh = Number.isNaN(ch) ? 1 : ch;
-            if (!Number.isNaN(prevCh) && prevCh !== nextCh) {
-                removeCvNoteSyncedLegacyOnChannel(this.currentGesture(), ev, prevCh);
-            }
-            ev.cvChannel = nextCh;
-            syncLegacyCvFromCvNotesForGesture(this.currentGesture());
+            ev.cvChannel = Number.isNaN(ch) ? 1 : ch;
             this.markDirty('preset', this.currentPresetName);
         },
 
@@ -36,74 +30,68 @@ function storeCvNoteMethods() {
 
         setCvNoteEventNoteDegree(index, degreeIndex, rawOctave) {
             const ev = this.cvNoteEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
             const preset = this.currentPreset();
-            const scale = preset?.scale;
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                oct =
+                    ev.octave !== undefined && !Number.isNaN(parseInt(String(ev.octave), 10))
+                        ? parseInt(String(ev.octave), 10)
+                        : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
             const deg = parseInt(String(degreeIndex), 10);
-            if (Number.isNaN(deg)) {
-                ev.scaleDegree = null;
-                const pc = midiPitchClassFromNote(ev.note);
+            if (Number.isNaN(deg) || !scaleDegreeIsValid(deg, preset)) {
+                delete ev.scaleDegree;
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                const pc = prev != null ? midiPitchClassFromNote(prev) : 0;
                 ev.note = midiNumberFromIndexAndOctave(pc, oct);
-                syncLegacyCvFromCvNotesForGesture(this.currentGesture());
-                this.markDirty('preset', this.currentPresetName);
-                return;
-            }
-            ev.scaleDegree = deg;
-            if (scale && typeof scale === 'object') {
-                const n = midiNoteFromPresetScaleDegree(scale, deg, oct);
-                if (n != null) ev.note = n;
             } else {
-                ev.scaleDegree = null;
-                const pc = midiPitchClassFromNote(ev.note);
-                ev.note = midiNumberFromIndexAndOctave(pc, oct);
+                ev.scaleDegree = deg;
+                delete ev.note;
             }
-            syncLegacyCvFromCvNotesForGesture(this.currentGesture());
             this.markDirty('preset', this.currentPresetName);
         },
 
         setCvNoteEventNoteChromatic(index, pitchClass, rawOctave) {
             const ev = this.cvNoteEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
-            ev.scaleDegree = null;
+            const preset = this.currentPreset();
+            delete ev.scaleDegree;
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                oct = prev != null ? midiOctaveFromNumber(prev) : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
             let pc = parseInt(String(pitchClass), 10);
-            if (Number.isNaN(pc)) pc = midiPitchClassFromNote(ev.note);
+            if (Number.isNaN(pc)) pc = 0;
             pc = ((pc % 12) + 12) % 12;
             ev.note = midiNumberFromIndexAndOctave(pc, oct);
-            syncLegacyCvFromCvNotesForGesture(this.currentGesture());
             this.markDirty('preset', this.currentPresetName);
         },
 
         setCvNoteEventNoteOctave(index, rawOctave) {
             const ev = this.cvNoteEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
+            const preset = this.currentPreset();
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                oct = prev != null ? midiOctaveFromNumber(prev) : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
-            const preset = this.currentPreset();
-            const scale = preset?.scale;
-            if (ev.scaleDegree != null && ev.scaleDegree !== '' && scale && typeof scale === 'object') {
-                const deg = parseInt(String(ev.scaleDegree), 10);
-                if (!Number.isNaN(deg)) {
-                    const n = midiNoteFromPresetScaleDegree(scale, deg, oct);
-                    if (n != null) ev.note = n;
-                }
-            } else {
-                const pc = midiPitchClassFromNote(ev.note);
+            if (!midiEventHasScaleDegree(ev)) {
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                const pc = prev != null ? midiPitchClassFromNote(prev) : 0;
                 ev.note = midiNumberFromIndexAndOctave(pc, oct);
             }
-            syncLegacyCvFromCvNotesForGesture(this.currentGesture());
             this.markDirty('preset', this.currentPresetName);
         },
 
@@ -127,11 +115,14 @@ function storeCvNoteMethods() {
                 gateChannel: 1,
                 note: 60,
                 octave: 4,
-                scaleDegree: null,
                 ...(initial && typeof initial === 'object' ? initial : {}),
             };
+            if (midiEventHasScaleDegree(ev)) {
+                delete ev.note;
+            } else {
+                delete ev.scaleDegree;
+            }
             gesture.cv_note.push(ev);
-            syncLegacyCvFromCvNotesForGesture(gesture);
             this.markDirty('preset', this.currentPresetName);
         },
 
@@ -140,7 +131,6 @@ function storeCvNoteMethods() {
             if (!gesture || !gesture.cv_note || index < 0 || index >= gesture.cv_note.length) return;
             this.saveHistory();
             gesture.cv_note.splice(index, 1);
-            syncLegacyCvFromCvNotesForGesture(gesture);
             this.markDirty('preset', this.currentPresetName);
         },
     };

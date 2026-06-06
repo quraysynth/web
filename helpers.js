@@ -41,7 +41,21 @@ const PRESET_SCALE_DEFAULT_ON_LOAD = {
     scale: 'natural_minor',
     root: 'D',
     octave: 1,
+    vOct: 1.0,
 };
+
+const V_OCT_DEFAULT = 1.0;
+const V_OCT_BUCHLA = 1.2;
+
+const V_OCT_OPTIONS = [
+    { value: V_OCT_DEFAULT, label: 'Eurorack (1 V/oct)' },
+    { value: V_OCT_BUCHLA, label: 'Buchla (1.2 V/oct)' },
+];
+
+function normalizePresetVOct(v) {
+    const n = parseFloat(String(v));
+    return n === V_OCT_BUCHLA ? V_OCT_BUCHLA : V_OCT_DEFAULT;
+}
 
 /** Empty preset (no gestures) with default scale. */
 function newEmptyPreset() {
@@ -136,132 +150,95 @@ function midiScaleDegreeOptionsFromPresetScale(scale) {
     });
 }
 
-function normalizeMidiNoteEvent(event, preset) {
-    if (event.note === undefined || event.cc !== undefined) return;
-    let oct = event.octave;
-    if (oct === undefined || Number.isNaN(parseInt(String(oct), 10))) {
-        oct = midiOctaveFromNumber(event.note);
-        event.octave = oct;
-    }
-    if (event.scaleDegree == null || event.scaleDegree === '') {
-        delete event.scaleDegree;
-        return;
-    }
-    const deg = parseInt(String(event.scaleDegree), 10);
-    if (Number.isNaN(deg)) {
-        delete event.scaleDegree;
-        return;
-    }
+function isMidiNoteBinding(event) {
+    return event != null && event.cc === undefined;
+}
+
+function midiEventHasScaleDegree(event) {
+    if (!event) return false;
+    const raw = event.scaleDegree;
+    if (raw === undefined || raw === null) return false;
+    const s = String(raw).trim();
+    if (s === '' || s.toLowerCase() === 'null') return false;
+    return !Number.isNaN(parseInt(s, 10));
+}
+
+function scaleDegreeIsValid(degreeIndex, preset) {
     const scale = preset?.scale;
-    if (!scale || typeof scale !== 'object') {
-        delete event.scaleDegree;
-        return;
-    }
+    if (!scale || typeof scale !== 'object' || Array.isArray(scale)) return false;
     const mode = scale.kind ?? scale.scale;
-    const nDeg = SCALE_KIND_INTERVALS[mode]?.length;
-    if (!nDeg || deg < 0 || deg >= nDeg) {
+    const intervals = SCALE_KIND_INTERVALS[mode];
+    if (!intervals) return false;
+    const deg = parseInt(String(degreeIndex), 10);
+    return !Number.isNaN(deg) && deg >= 0 && deg < intervals.length;
+}
+
+/** Runtime MIDI number from stored note or scale degree (not persisted when degree is used). */
+function effectiveMidiNoteNumber(event, preset) {
+    if (!isMidiNoteBinding(event)) return null;
+    if (midiEventHasScaleDegree(event) && scaleDegreeIsValid(event.scaleDegree, preset)) {
+        const deg = parseInt(String(event.scaleDegree), 10);
+        let oct = event.octave;
+        if (oct === undefined || Number.isNaN(parseInt(String(oct), 10))) oct = 4;
+        return midiNoteFromPresetScaleDegree(preset.scale, deg, oct);
+    }
+    if (event.note !== undefined && event.note !== null) {
+        const n = Number(event.note);
+        return Number.isNaN(n) ? null : n;
+    }
+    return null;
+}
+
+/** Load path: drop redundant note/scaleDegree fields; ignore note when degree is set. */
+function ingestMidiNoteEvent(event, preset) {
+    if (!isMidiNoteBinding(event)) return;
+
+    if (midiEventHasScaleDegree(event)) {
+        delete event.note;
+        let oct = event.octave;
+        if (oct === undefined || Number.isNaN(parseInt(String(oct), 10))) {
+            event.octave = 4;
+        }
+        if (!scaleDegreeIsValid(event.scaleDegree, preset)) {
+            delete event.scaleDegree;
+            event.note = 60;
+        }
+    } else {
         delete event.scaleDegree;
-        return;
-    }
-    const recomputed = midiNoteFromPresetScaleDegree(scale, deg, event.octave);
-    if (recomputed != null) event.note = recomputed;
-}
-
-/** After preset.scale root/mode/… changes, recompute note for events with scaleDegree. */
-function recomputeMidiNotesFromPresetScale(preset) {
-    if (!preset?.gestures) return;
-    for (const gesture of preset.gestures) {
-        if (gesture?.midi?.length) {
-            for (const ev of gesture.midi) {
-                if (ev.note === undefined || ev.cc !== undefined) continue;
-                normalizeMidiNoteEvent(ev, preset);
-            }
+        if (event.note === undefined || event.note === null) {
+            event.note = 60;
         }
-        if (gesture?.cv_note?.length) {
-            for (const ev of gesture.cv_note) {
-                if (ev.note === undefined) continue;
-                normalizeMidiNoteEvent(ev, preset);
-            }
+        let oct = event.octave;
+        if (oct === undefined || Number.isNaN(parseInt(String(oct), 10))) {
+            event.octave = midiOctaveFromNumber(event.note);
         }
-        syncLegacyCvFromCvNotesForGesture(gesture);
     }
 }
 
-/** 1 V/oct from MIDI C0 (note 12): 0 V. Volts = (midiNote - 12) / 12. */
-function midiNoteToCvLegacyStoreValue(midiNote) {
-    const n = Number(midiNote);
-    if (Number.isNaN(n)) return 0;
-    return (n - 12) / 12;
-}
-
-/**
- * Removes the gesture.cv row that mirrors this cv_note on the given CV channel (1 V/oct).
- * Call before changing cv_note.cvChannel; otherwise syncLegacyCvFromCvNotesForGesture
- * keeps the old row as a “manual” CV (that channel drops out of usedChannels).
- */
-function removeCvNoteSyncedLegacyOnChannel(gesture, cvNoteEv, legacyChannel) {
-    if (!gesture?.cv?.length || !cvNoteEv) return;
-    const targetCh = parseInt(String(legacyChannel), 10);
-    if (Number.isNaN(targetCh)) return;
-    const v =
-        cvNoteEv.note !== undefined && cvNoteEv.note !== null
-            ? midiNoteToCvLegacyStoreValue(cvNoteEv.note)
-            : 0;
-    gesture.cv = gesture.cv.filter((ev) => {
-        const ch = parseInt(String(ev.channel), 10);
-        if (Number.isNaN(ch) || ch !== targetCh) return true;
-        if (ev.axis !== 'y' || ev.singleValue !== true) return true;
-        if (ev.bottom !== ev.top) return true;
-        const b = Number(ev.bottom !== undefined ? ev.bottom : ev.top);
-        if (Number.isNaN(b) || Math.abs(b - v) > 1e-9) return true;
-        return false;
-    });
-}
-
-/**
- * Mirrors cv_note into gesture.cv (channel = cvChannel, single value, Y axis).
- * Keeps manual cv rows on channels not used by any cv_note.cvChannel.
- * Rows for cv_note channels are rebuilt from cv_note.
- * Also sets gesture.gate: one row per cv_note { channel, on, off } (same order as cv_note).
- */
-function syncLegacyCvFromCvNotesForGesture(gesture) {
-    if (!gesture) return;
-    if (!gesture.cv || !Array.isArray(gesture.cv)) gesture.cv = [];
-    const cvNoteList = Array.isArray(gesture.cv_note) ? gesture.cv_note : [];
-    const usedChannels = new Set();
-    for (const cn of cvNoteList) {
-        const ch = parseInt(String(cn.cvChannel), 10);
-        if (!Number.isNaN(ch)) usedChannels.add(ch);
+/** Save path: persist either scaleDegree+octave or chromatic note+octave, not both. */
+function prepareMidiNoteEventForYaml(event) {
+    if (!isMidiNoteBinding(event)) return;
+    if (midiEventHasScaleDegree(event)) {
+        delete event.note;
+    } else {
+        delete event.scaleDegree;
     }
-    const keep = gesture.cv.filter((ev) => {
-        const ch = parseInt(String(ev.channel), 10);
-        if (Number.isNaN(ch)) return true;
-        return !usedChannels.has(ch);
-    });
-    const legacy = cvNoteList.map((cn) => {
-        const v =
-            cn.note !== undefined && cn.note !== null ? midiNoteToCvLegacyStoreValue(cn.note) : 0;
-        const ch = parseInt(String(cn.cvChannel), 10);
-        return {
-            channel: Number.isNaN(ch) ? 1 : ch,
-            axis: 'y',
-            bottom: v,
-            top: v,
-            singleValue: true,
-        };
-    });
-    gesture.cv = [...keep, ...legacy];
+}
 
-    const GATE_ON_VOLTS = 5;
-    const GATE_OFF_VOLTS = 0;
-    gesture.gate = cvNoteList.map((cn) => {
-        const ch = parseInt(String(cn.gateChannel), 10);
-        return {
-            channel: Number.isNaN(ch) ? 1 : ch,
-            on: GATE_ON_VOLTS,
-            off: GATE_OFF_VOLTS,
-        };
-    });
+/** Deep clone preset and strip redundant note fields before YAML dump. */
+function preparePresetForYaml(preset) {
+    const p = JSON.parse(JSON.stringify(preset || { gestures: [] }));
+    if (!Array.isArray(p.gestures)) return p;
+    for (const gesture of p.gestures) {
+        if (Array.isArray(gesture.midi)) {
+            for (const ev of gesture.midi) prepareMidiNoteEventForYaml(ev);
+        }
+        if (Array.isArray(gesture.cv_note)) {
+            for (const ev of gesture.cv_note) prepareMidiNoteEventForYaml(ev);
+        }
+        delete gesture.gate;
+    }
+    return p;
 }
 
 /**
@@ -295,6 +272,7 @@ function normalizePresetData(preset, options) {
             s.scale = s.kind;
         }
         if (!VALID_SCALE_KINDS.has(s.scale)) s.scale = 'major';
+        s.vOct = normalizePresetVOct(s.vOct);
     }
 
     if (!preset.gestures) return;
@@ -308,9 +286,8 @@ function normalizePresetData(preset, options) {
                     if (event.bottom === undefined) event.bottom = 0;
                     if (event.top === undefined) event.top = 127;
                     if (event.singleValue === undefined) event.singleValue = false;
-                }
-                if (event.note !== undefined && event.cc === undefined) {
-                    normalizeMidiNoteEvent(event, preset);
+                } else {
+                    ingestMidiNoteEvent(event, preset);
                 }
             });
         }
@@ -327,23 +304,12 @@ function normalizePresetData(preset, options) {
         if (!gesture.cv_note || !Array.isArray(gesture.cv_note)) {
             gesture.cv_note = [];
         }
-        if (!gesture.gate || !Array.isArray(gesture.gate)) {
-            gesture.gate = [];
-        }
         gesture.cv_note.forEach((event) => {
-            if (event.note === undefined) return;
-            normalizeMidiNoteEvent(event, preset);
+            if (!isMidiNoteBinding(event)) return;
+            ingestMidiNoteEvent(event, preset);
         });
 
-        syncLegacyCvFromCvNotesForGesture(gesture);
-
-        if (Array.isArray(gesture.gate)) {
-            gesture.gate.forEach((row) => {
-                if (!row || typeof row !== 'object' || Array.isArray(row)) return;
-                if (row.on === undefined) row.on = 5;
-                if (row.off === undefined) row.off = 0;
-            });
-        }
+        delete gesture.gate;
 
         if (gesture.position && Array.isArray(gesture.position) && gesture.position.length >= 5) {
             const y_min_raw = parseFloat(gesture.position[2]);

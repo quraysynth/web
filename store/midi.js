@@ -23,7 +23,7 @@ function storeMidiMethods() {
             const ev = g.midi[index];
             const channel = ev.channel || 1;
             if (type === 'note') {
-                g.midi[index] = { channel, note: 60, octave: 4, scaleDegree: null };
+                g.midi[index] = { channel, note: 60, octave: 4 };
             } else {
                 g.midi[index] = {
                     channel,
@@ -48,45 +48,46 @@ function storeMidiMethods() {
 
         setMidiEventNoteDegree(index, degreeIndex, rawOctave) {
             const ev = this.midiEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
             const preset = this.currentPreset();
-            const scale = preset?.scale;
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                oct =
+                    ev.octave !== undefined && !Number.isNaN(parseInt(String(ev.octave), 10))
+                        ? parseInt(String(ev.octave), 10)
+                        : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
             const deg = parseInt(String(degreeIndex), 10);
-            if (Number.isNaN(deg)) {
-                ev.scaleDegree = null;
-                const pc = midiPitchClassFromNote(ev.note);
+            if (Number.isNaN(deg) || !scaleDegreeIsValid(deg, preset)) {
+                delete ev.scaleDegree;
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                const pc = prev != null ? midiPitchClassFromNote(prev) : 0;
                 ev.note = midiNumberFromIndexAndOctave(pc, oct);
-                this.markDirty('preset', this.currentPresetName);
-                return;
-            }
-            ev.scaleDegree = deg;
-            if (scale && typeof scale === 'object') {
-                const n = midiNoteFromPresetScaleDegree(scale, deg, oct);
-                if (n != null) ev.note = n;
             } else {
-                ev.scaleDegree = null;
-                const pc = midiPitchClassFromNote(ev.note);
-                ev.note = midiNumberFromIndexAndOctave(pc, oct);
+                ev.scaleDegree = deg;
+                delete ev.note;
             }
             this.markDirty('preset', this.currentPresetName);
         },
 
         setMidiEventNoteChromatic(index, pitchClass, rawOctave) {
             const ev = this.midiEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
-            ev.scaleDegree = null;
+            delete ev.scaleDegree;
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                const preset = this.currentPreset();
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                oct = prev != null ? midiOctaveFromNumber(prev) : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
             let pc = parseInt(String(pitchClass), 10);
-            if (Number.isNaN(pc)) pc = midiPitchClassFromNote(ev.note);
+            if (Number.isNaN(pc)) pc = 0;
             pc = ((pc % 12) + 12) % 12;
             ev.note = midiNumberFromIndexAndOctave(pc, oct);
             this.markDirty('preset', this.currentPresetName);
@@ -94,22 +95,20 @@ function storeMidiMethods() {
 
         setMidiEventNoteOctave(index, rawOctave) {
             const ev = this.midiEventAt(index);
-            if (!ev || ev.note === undefined) return;
+            if (!ev || !isMidiNoteBinding(ev)) return;
             this.saveHistory();
             let oct = parseInt(String(rawOctave), 10);
-            if (Number.isNaN(oct)) oct = midiOctaveFromNumber(ev.note);
+            if (Number.isNaN(oct)) {
+                const preset = this.currentPreset();
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                oct = prev != null ? midiOctaveFromNumber(prev) : 4;
+            }
             oct = Math.max(MIDI_NOTE_OCTAVE_MIN, Math.min(MIDI_NOTE_OCTAVE_MAX, oct));
             ev.octave = oct;
-            const preset = this.currentPreset();
-            const scale = preset?.scale;
-            if (ev.scaleDegree != null && ev.scaleDegree !== '' && scale && typeof scale === 'object') {
-                const deg = parseInt(String(ev.scaleDegree), 10);
-                if (!Number.isNaN(deg)) {
-                    const n = midiNoteFromPresetScaleDegree(scale, deg, oct);
-                    if (n != null) ev.note = n;
-                }
-            } else {
-                const pc = midiPitchClassFromNote(ev.note);
+            if (!midiEventHasScaleDegree(ev)) {
+                const preset = this.currentPreset();
+                const prev = effectiveMidiNoteNumber(ev, preset);
+                const pc = prev != null ? midiPitchClassFromNote(prev) : 0;
                 ev.note = midiNumberFromIndexAndOctave(pc, oct);
             }
             this.markDirty('preset', this.currentPresetName);
@@ -175,7 +174,7 @@ function storeMidiMethods() {
             const gesture = this.currentGesture();
             if (!gesture) return;
             this.ensureGestureMidiCv(gesture);
-            gesture.midi.push({ channel: 1, note: 60, octave: 4, scaleDegree: null });
+            gesture.midi.push({ channel: 1, note: 60, octave: 4 });
             this.markDirty('preset', this.currentPresetName);
         },
 

@@ -26,7 +26,6 @@ document.addEventListener('alpine:init', () => {
     app.sensorData.distance = Array(app.HW_CH_COUNT).fill(0);
 
     app.loadAllFiles().then(() => {
-        app.startDirtyCheckTimer();
         app.startSensorDataPolling();
     });
 });

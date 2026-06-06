@@ -44,23 +44,10 @@ function eventsView() {
 
         get eventRows() {
             const rows = [];
-            const g = Alpine.store('app').currentGesture();
-            const cvNoteChannels = new Set();
-            if (g?.cv_note?.length) {
-                for (const cn of g.cv_note) {
-                    const ch = parseInt(String(cn.cvChannel), 10);
-                    if (!Number.isNaN(ch)) cvNoteChannels.add(ch);
-                }
-            }
             for (let i = 0; i < this.gestureMidi.length; i++) {
                 rows.push({ kind: 'midi', index: i });
             }
-            const cvArr = g?.cv;
-            const cvLen = Array.isArray(cvArr) ? cvArr.length : 0;
-            for (let i = 0; i < cvLen; i++) {
-                const ev = cvArr[i];
-                const ch = ev ? parseInt(String(ev.channel), 10) : NaN;
-                if (!Number.isNaN(ch) && cvNoteChannels.has(ch)) continue;
+            for (let i = 0; i < this.cvEvents.length; i++) {
                 rows.push({ kind: 'cv', index: i });
             }
             for (let i = 0; i < this.gestureCvNotes.length; i++) {
@@ -109,12 +96,22 @@ function eventsView() {
             return midiScaleDegreeOptionsFromPresetScale(s.presetsData[name].scale);
         },
 
+        isMidiNoteRow(row) {
+            const ev = this.midiEventForRow(row);
+            return row.kind === 'midi' && ev && isMidiNoteBinding(ev);
+        },
+
+        isMidiCcRow(row) {
+            const ev = this.midiEventForRow(row);
+            return row.kind === 'midi' && ev && ev.cc !== undefined;
+        },
+
         typeValueForRow(row) {
             if (row.kind === 'cvNote') return 'cvNote';
             if (row.kind === 'cv') return 'cv';
             const ev = this.midiEventForRow(row);
             if (!ev) return 'note';
-            return ev.note !== undefined ? 'note' : 'cc';
+            return ev.cc !== undefined ? 'cc' : 'note';
         },
 
         eventOctaveDisplay(event) {
@@ -122,7 +119,10 @@ function eventsView() {
                 const o = parseInt(String(event.octave), 10);
                 if (!Number.isNaN(o)) return o;
             }
-            return midiOctaveFromNumber(event.note);
+            const s = Alpine.store('app');
+            const preset = s.currentPresetName ? s.presetsData[s.currentPresetName] : null;
+            const n = effectiveMidiNoteNumber(event, preset);
+            return n != null ? midiOctaveFromNumber(n) : 4;
         },
 
         noteSelectValue(event) {
@@ -132,13 +132,15 @@ function eventsView() {
                 raw === null ||
                 String(raw).trim() === '' ||
                 String(raw).trim().toLowerCase() === 'null';
-            if (empty) {
-                return `pc:${midiPitchClassFromNote(event.note)}`;
+            if (!empty) {
+                const deg = parseInt(String(raw), 10);
+                const opts = this.scaleDegreeOptions;
+                if (!Number.isNaN(deg) && opts[deg] !== undefined) return `deg:${deg}`;
             }
-            const deg = parseInt(String(raw), 10);
-            const opts = this.scaleDegreeOptions;
-            if (!Number.isNaN(deg) && opts[deg] !== undefined) return `deg:${deg}`;
-            return `pc:${midiPitchClassFromNote(event.note)}`;
+            const s = Alpine.store('app');
+            const preset = s.currentPresetName ? s.presetsData[s.currentPresetName] : null;
+            const n = effectiveMidiNoteNumber(event, preset);
+            return `pc:${n != null ? midiPitchClassFromNote(n) : 0}`;
         },
 
         addEvent() {
@@ -173,10 +175,20 @@ function eventsView() {
                 const ni = g.midi.length - 1;
                 s.setMidiEventKind(ni, newType);
                 if (newType === 'note' && cvNoteEv) {
-                    if (cvNoteEv.scaleDegree != null && cvNoteEv.scaleDegree !== '') {
-                        s.setMidiEventNoteDegree(ni, parseInt(String(cvNoteEv.scaleDegree), 10), cvNoteEv.octave);
+                    if (midiEventHasScaleDegree(cvNoteEv)) {
+                        s.setMidiEventNoteDegree(
+                            ni,
+                            parseInt(String(cvNoteEv.scaleDegree), 10),
+                            cvNoteEv.octave
+                        );
                     } else {
-                        s.setMidiEventNoteChromatic(ni, midiPitchClassFromNote(cvNoteEv.note), cvNoteEv.octave);
+                        const preset = s.currentPreset();
+                        const n = effectiveMidiNoteNumber(cvNoteEv, preset);
+                        s.setMidiEventNoteChromatic(
+                            ni,
+                            n != null ? midiPitchClassFromNote(n) : 0,
+                            cvNoteEv.octave
+                        );
                     }
                 }
                 return;
@@ -198,16 +210,28 @@ function eventsView() {
                 let noteFields = {};
                 if (row.kind === 'midi') {
                     const ev = s.midiEventAt(row.index);
-                    if (ev && ev.note !== undefined) {
+                    if (ev && isMidiNoteBinding(ev)) {
                         const oct =
                             ev.octave !== undefined && ev.octave !== null
                                 ? parseInt(String(ev.octave), 10)
-                                : midiOctaveFromNumber(ev.note);
-                        noteFields = {
-                            note: ev.note,
-                            octave: Number.isNaN(oct) ? midiOctaveFromNumber(ev.note) : oct,
-                            scaleDegree: ev.scaleDegree != null && ev.scaleDegree !== '' ? ev.scaleDegree : null,
-                        };
+                                : 4;
+                        if (midiEventHasScaleDegree(ev)) {
+                            noteFields = {
+                                octave: Number.isNaN(oct) ? 4 : oct,
+                                scaleDegree: parseInt(String(ev.scaleDegree), 10),
+                            };
+                        } else {
+                            const preset = s.currentPreset();
+                            const n = effectiveMidiNoteNumber(ev, preset);
+                            noteFields = {
+                                note: n != null ? n : 60,
+                                octave: Number.isNaN(oct)
+                                    ? n != null
+                                        ? midiOctaveFromNumber(n)
+                                        : 4
+                                    : oct,
+                            };
+                        }
                     }
                     s.deleteMidiEvent(row.index);
                 } else {
@@ -219,12 +243,8 @@ function eventsView() {
 
         onCvNoteNameChange(index, raw) {
             const ev = Alpine.store('app').cvNoteEventAt(index);
-            if (!ev || ev.note === undefined) return;
-            const oct =
-                ev.octave !== undefined && ev.octave !== null
-                    ? parseInt(String(ev.octave), 10)
-                    : midiOctaveFromNumber(ev.note);
-            const o = Number.isNaN(oct) ? midiOctaveFromNumber(ev.note) : oct;
+            if (!ev || !isMidiNoteBinding(ev)) return;
+            const o = this.eventOctaveDisplay(ev);
             const str = String(raw);
             if (str.startsWith('deg:')) {
                 Alpine.store('app').setCvNoteEventNoteDegree(index, parseInt(str.slice(4), 10), o);
@@ -245,12 +265,8 @@ function eventsView() {
 
         onNoteNameChange(index, raw) {
             const ev = Alpine.store('app').midiEventAt(index);
-            if (!ev || ev.note === undefined) return;
-            const oct =
-                ev.octave !== undefined && ev.octave !== null
-                    ? parseInt(String(ev.octave), 10)
-                    : midiOctaveFromNumber(ev.note);
-            const o = Number.isNaN(oct) ? midiOctaveFromNumber(ev.note) : oct;
+            if (!ev || !isMidiNoteBinding(ev)) return;
+            const o = this.eventOctaveDisplay(ev);
             const str = String(raw);
             if (str.startsWith('deg:')) {
                 Alpine.store('app').setMidiEventNoteDegree(index, parseInt(str.slice(4), 10), o);
