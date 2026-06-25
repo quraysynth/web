@@ -29,6 +29,8 @@ function configWithUiDefaults(cfg) {
     if (!o.point_type) o.point_type = 'cloud';
     if (!o.color1) o.color1 = '#FE3A86';
     if (!o.color2) o.color2 = '#7742ff';
+    delete o.x_avg_speed;
+    delete o.y_avg_speed;
     return o;
 }
 
@@ -149,10 +151,7 @@ function parseDeviceExportBundle(text, HW) {
     }
     const calibData = buildCalibDataFromLoaded(root.calib != null ? root.calib : {}, HW);
     const loadedConfig = root.config != null && typeof root.config === 'object' ? root.config : {};
-    const configData = { ...loadedConfig };
-    if (!configData.point_type) configData.point_type = 'cloud';
-    if (!configData.color1) configData.color1 = '#FE3A86';
-    if (!configData.color2) configData.color2 = '#7742ff';
+    const configData = configWithUiDefaults(loadedConfig);
 
     const presetsData = {};
     const presetNames = [];
@@ -521,10 +520,7 @@ function storeLoadExportNavigationMethods() {
                 const configResponse = await qurayTransport.apiFetch('config.yml');
                 const configText = await configResponse.text();
                 const loadedConfig = jsyaml.load(configText) || {};
-                this.configData = loadedConfig;
-                if (!this.configData.point_type) this.configData.point_type = 'cloud';
-                if (!this.configData.color1) this.configData.color1 = '#FE3A86';
-                if (!this.configData.color2) this.configData.color2 = '#7742ff';
+                this.configData = configWithUiDefaults(loadedConfig);
 
                 const presetsListText = await qurayTransport.fetchPresetsListText(qurayTransport.apiFetch);
                 const presetFiles = qurayTransport.parsePresetsListFromResponseText(presetsListText);

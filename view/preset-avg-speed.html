@@ -1,0 +1,41 @@
+<div class="section" style="margin-bottom: 20px;" x-data="presetAvgSpeedView()">
+    <h2 style="margin: 0 0 10px 0;">Avg Speed</h2>
+    <template x-if="!hasPreset">
+        <p style="color: #999; font-size: 13px;" x-text="emptyHint()"></p>
+    </template>
+    <template x-if="hasPreset">
+        <div class="midi-event scale-block">
+            <div class="midi-event-controls">
+                <div class="scale-extra-rows">
+                    <div class="scale-row scale-row-root-octave">
+                        <div>
+                            <label for="presetAvgSpeedX">X Avg Speed</label>
+                            <input
+                                type="number"
+                                id="presetAvgSpeedX"
+                                min="0"
+                                max="10"
+                                x-bind:value="xAvgSpeed"
+                                x-on:change="onXChange($event)"
+                            />
+                        </div>
+                        <div>
+                            <label for="presetAvgSpeedY">Y Avg Speed</label>
+                            <input
+                                type="number"
+                                id="presetAvgSpeedY"
+                                min="0"
+                                max="10"
+                                x-bind:value="yAvgSpeed"
+                                x-on:change="onYChange($event)"
+                            />
+                        </div>
+                    </div>
+                    <div style="color: #9a9a9a; font-size: 12px;">
+                        0 = more smoothing, slower response. 10 = less smoothing, faster response.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </template>
+</div>

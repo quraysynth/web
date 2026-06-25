@@ -436,6 +436,10 @@
             return { kind: 'full' };
         }
 
+        if (!jsonEqual(prev.x_avg_speed, cur.x_avg_speed) || !jsonEqual(prev.y_avg_speed, cur.y_avg_speed)) {
+            return { kind: 'full' };
+        }
+
         const prevGestures = prev.gestures || [];
         const curGestures = cur.gestures || [];
 

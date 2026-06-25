@@ -46,6 +46,7 @@ const PRESET_SCALE_DEFAULT_ON_LOAD = {
 
 const V_OCT_DEFAULT = 1.0;
 const V_OCT_BUCHLA = 1.2;
+const PRESET_AVG_SPEED_DEFAULT = 5;
 
 const V_OCT_OPTIONS = [
     { value: V_OCT_DEFAULT, label: 'Eurorack (1 V/oct)' },
@@ -57,11 +58,19 @@ function normalizePresetVOct(v) {
     return n === V_OCT_BUCHLA ? V_OCT_BUCHLA : V_OCT_DEFAULT;
 }
 
+function normalizePresetAvgSpeed(v) {
+    const n = parseInt(String(v), 10);
+    if (Number.isNaN(n)) return PRESET_AVG_SPEED_DEFAULT;
+    return Math.max(0, Math.min(10, n));
+}
+
 /** Empty preset (no gestures) with default scale. */
 function newEmptyPreset() {
     return {
         gestures: [],
         scale: { ...PRESET_SCALE_DEFAULT_ON_LOAD },
+        x_avg_speed: PRESET_AVG_SPEED_DEFAULT,
+        y_avg_speed: PRESET_AVG_SPEED_DEFAULT,
     };
 }
 
@@ -258,6 +267,9 @@ function normalizePresetData(preset, options) {
     if (fillMissingScale && preset.scale == null) {
         preset.scale = { ...PRESET_SCALE_DEFAULT_ON_LOAD };
     }
+
+    preset.x_avg_speed = normalizePresetAvgSpeed(preset.x_avg_speed);
+    preset.y_avg_speed = normalizePresetAvgSpeed(preset.y_avg_speed);
 
     if (preset.scale != null && typeof preset.scale === 'object' && !Array.isArray(preset.scale)) {
         const s = preset.scale;

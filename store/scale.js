@@ -1,5 +1,5 @@
 /**
- * Preset-level scale metadata (editor only; device ignores).
+ * Preset-level scale and tracking metadata.
  */
 
 const SCALE_DEFAULTS = {
@@ -13,6 +13,15 @@ function storeScaleMethods() {
     return {
         defaultPresetScale() {
             return { ...SCALE_DEFAULTS };
+        },
+
+        setPresetAvgSpeed(axis, raw) {
+            const preset = this.currentPreset();
+            if (!preset) return;
+            const key = axis === 'y' ? 'y_avg_speed' : 'x_avg_speed';
+            this.saveHistory();
+            preset[key] = normalizePresetAvgSpeed(raw);
+            this.markDirty('preset', this.currentPresetName);
         },
 
         /** Пустая строка → preset.scale = null, иначе объект с ладом и полями root/octave. */

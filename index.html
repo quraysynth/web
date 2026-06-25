@@ -16,6 +16,7 @@
     <script src="view/preset.js" defer></script>
     <script src="view/gesture.js" defer></script>
     <script src="view/split-gesture.js" defer></script>
+    <script src="view/preset-avg-speed.js" defer></script>
     <script src="view/scale.js" defer></script>
     <script src="view/events.js" defer></script>
     <script src="view/gesture-canvas.js" defer></script>
@@ -56,6 +57,7 @@
             </div>
 
             <div class="right-panel">
+                <div x-init="mount($el, 'view/preset-avg-speed.html')"></div>
                 <div x-init="mount($el, 'view/scale.html')"></div>
                 <div x-init="mount($el, 'view/events.html')"></div>
             </div>
